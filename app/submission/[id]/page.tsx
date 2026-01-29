@@ -6,7 +6,9 @@ import Link from 'next/link'
 import { abstractsApi, commentsApi, coauthorsApi } from '@/lib/api'
 import { mockAbstracts, mockComments } from '@/lib/mockData'
 import type { Abstract, AbstractComment, AbstractCoauthor } from '@/lib/types'
-import ChangelogViewer from '@/components/ChangelogViewer'
+import ChangelogModal from '@/components/ChangelogModal'
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 
 export default function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
@@ -20,6 +22,7 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
   const [coauthorLoading, setCoauthorLoading] = useState(false)
   const [coauthorError, setCoauthorError] = useState('')
   const [coauthorSuccess, setCoauthorSuccess] = useState('')
+  const [changelogModalOpen, setChangelogModalOpen] = useState(false)
 
   useEffect(() => {
     const initPage = async () => {
@@ -198,16 +201,12 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Header />
+
+      {/* Page Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link
-            href="/my-submissions"
-            className="text-primary-500 hover:text-primary-600 font-medium text-sm mb-2 inline-block"
-          >
-            ← Back to My Submissions
-          </Link>
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{abstract.title}</h1>
@@ -229,9 +228,9 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
             )}
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -482,13 +481,41 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
               )}
             </div>
 
-            {/* Change History */}
-            <div className="mt-6">
-              <ChangelogViewer abstractId={parseInt(abstractId)} />
+            {/* View Change History Button */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Change History</h3>
+              <button
+                onClick={() => setChangelogModalOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                View Full History
+              </button>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Changelog Modal */}
+      <ChangelogModal
+        abstractId={parseInt(abstractId)}
+        isOpen={changelogModalOpen}
+        onClose={() => setChangelogModalOpen(false)}
+      />
+
+      <Footer />
     </div>
   )
 }

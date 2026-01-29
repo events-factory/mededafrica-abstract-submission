@@ -145,43 +145,18 @@ export default function SubmitAbstractPage() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('user')
-    router.push('/')
-  }
-
   return (
-    // add header and footer
-    
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
       <Header />
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 my-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-primary-700">Submit Your Abstract</h1>
-              <p className="text-gray-600 mt-1">
-                Complete the form below to submit your conference abstract
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link
-                href="/my-submissions"
-                className="px-4 py-2 border border-primary-500 text-primary-500 rounded-lg hover:bg-primary-50 transition-colors font-medium"
-              >
-                My Submissions
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
+      <div className="flex-1 px-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Page Header */}
+          <div className="bg-white rounded-lg shadow-md p-6 my-6">
+            <h1 className="text-3xl font-bold text-primary-700">Submit Your Abstract</h1>
+            <p className="text-gray-600 mt-1">
+              Complete the form below to submit your conference abstract
+            </p>
           </div>
-        </div>
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-md p-8">
@@ -436,7 +411,9 @@ export default function SubmitAbstractPage() {
             </div>
           </form>
         </div>
+        </div>
       </div>
+      <Footer />
     </div>
   )
 }

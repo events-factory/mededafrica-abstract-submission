@@ -7,6 +7,7 @@ import { abstractsApi } from '@/lib/api';
 import type { Abstract } from '@/lib/types';
 import { mockAbstracts } from '@/lib/mockData';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -49,12 +50,6 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    router.push('/');
-  };
-
   const getStatusBadge = (status: Abstract['status']) => {
     const badges = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -90,8 +85,7 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto mt-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div>
               <h1 className="text-3xl font-bold text-primary-700">
                 Abstract Review Dashboard
               </h1>
@@ -99,13 +93,6 @@ export default function DashboardPage() {
                 Review and manage submitted abstracts
               </p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
         </div>
 
         {/* Filters */}
@@ -247,6 +234,7 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

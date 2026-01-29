@@ -94,41 +94,18 @@ export default function InviteStaffPage() {
     }
   }
 
-  const handleLogout = () => {
-    authApi.logout()
-    router.push('/')
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
       <Header />
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Header */}
+        {/* Page Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-primary-700">
-                Invite Staff Member
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Add a new reviewer to the team
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link
-                href="/dashboard"
-                className="px-4 py-2 border border-primary-500 text-primary-500 rounded-lg hover:bg-primary-50 transition-colors font-medium"
-              >
-                Dashboard
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold text-primary-700">
+            Invite Staff Member
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Add a new reviewer to the team
+          </p>
         </div>
 
         {/* Success/Error Messages */}

@@ -6,7 +6,9 @@ import Link from 'next/link';
 import { abstractsApi, commentsApi } from '@/lib/api';
 import type { Abstract, AbstractComment } from '@/lib/types';
 import { mockAbstracts, mockComments } from '@/lib/mockData';
-import ChangelogViewer from '@/components/ChangelogViewer';
+import ChangelogModal from '@/components/ChangelogModal';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 export default function AbstractDetailPage() {
   const router = useRouter();
@@ -20,6 +22,7 @@ export default function AbstractDetailPage() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
+  const [changelogModalOpen, setChangelogModalOpen] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -195,30 +198,10 @@ export default function AbstractDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-4"
-          >
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back to Dashboard
-          </Link>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
+      <Header />
+      <div className="flex-1 py-8 px-4">
+        <div className="max-w-5xl mx-auto">
 
         {/* Status and Actions */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -430,11 +413,38 @@ export default function AbstractDetailPage() {
           </div>
         </div>
 
-        {/* Change History Section - Full Width */}
-        <div className="mt-8">
-          <ChangelogViewer abstractId={abstractId} />
+        {/* View Changelog Button */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={() => setChangelogModalOpen(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            View Change History
+          </button>
+        </div>
+
+        {/* Changelog Modal */}
+        <ChangelogModal
+          abstractId={abstractId}
+          isOpen={changelogModalOpen}
+          onClose={() => setChangelogModalOpen(false)}
+        />
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
