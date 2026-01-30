@@ -23,6 +23,9 @@ export default function AbstractDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
   const [changelogModalOpen, setChangelogModalOpen] = useState(false);
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [approveNote, setApproveNote] = useState('');
+  const [approvePoints, setApprovePoints] = useState<number | ''>('');
 
   useEffect(() => {
     // Check authentication
@@ -65,7 +68,7 @@ export default function AbstractDetailPage() {
   const fetchComments = async () => {
     const response = await commentsApi.getByAbstractId(abstractId);
 
-    if (response.data) {
+    if (response.data && Array.isArray(response.data)) {
       setComments(response.data);
     } else {
       // Use mock comments if API fails (Demo mode)
@@ -79,8 +82,13 @@ export default function AbstractDetailPage() {
   ) => {
     if (!abstract) return;
 
+    // For approval, open the modal instead
+    if (status === 'approved') {
+      setApproveModalOpen(true);
+      return;
+    }
+
     const confirmMessages = {
-      approved: 'Are you sure you want to approve this abstract?',
       rejected: 'Are you sure you want to reject this abstract?',
       more_info_requested: 'Are you sure you want to request more information?',
     };
@@ -90,9 +98,7 @@ export default function AbstractDetailPage() {
     setActionLoading(true);
     let response;
 
-    if (status === 'approved') {
-      response = await abstractsApi.approve(abstractId);
-    } else if (status === 'rejected') {
+    if (status === 'rejected') {
       response = await abstractsApi.reject(abstractId);
     } else {
       response = await abstractsApi.requestMoreInfo(abstractId);
@@ -116,6 +122,36 @@ export default function AbstractDetailPage() {
       const statusLabel = status.replace(/_/g, ' ');
       alert(`Abstract ${statusLabel} successfully! (Demo Mode)`);
     }
+    setActionLoading(false);
+  };
+
+  const handleApproveSubmit = async () => {
+    if (!abstract) return;
+
+    setActionLoading(true);
+    const points = approvePoints === '' ? undefined : approvePoints;
+    const response = await abstractsApi.approve(abstractId, approveNote || undefined, points);
+
+    if (response.data) {
+      setAbstract(response.data);
+      alert('Abstract approved successfully!');
+    } else {
+      // Demo mode: Update status locally
+      console.log('API failed, updating status locally for demo');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const updatedAbstract = {
+        ...abstract,
+        status: 'approved' as const,
+        reviewedBy: user.email || 'demo-reviewer@example.com',
+        reviewedAt: new Date().toISOString(),
+      };
+      setAbstract(updatedAbstract);
+      alert('Abstract approved successfully! (Demo Mode)');
+    }
+
+    setApproveModalOpen(false);
+    setApproveNote('');
+    setApprovePoints('');
     setActionLoading(false);
   };
 
@@ -210,8 +246,13 @@ export default function AbstractDetailPage() {
               <h1 className="text-2xl font-bold text-gray-800 mb-2">
                 Review Abstract
               </h1>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {getStatusBadge(abstract.status)}
+                {abstract.points != null && (
+                  <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-semibold">
+                    {abstract.points} points
+                  </span>
+                )}
                 <span className="text-sm text-gray-500">
                   Submitted on{' '}
                   {new Date(abstract.createdAt).toLocaleDateString()}
@@ -386,12 +427,12 @@ export default function AbstractDetailPage() {
 
               {/* Comments List */}
               <div className="space-y-4">
-                {comments.length === 0 ? (
+                {!comments || comments.length === 0 ? (
                   <p className="text-gray-500 text-sm text-center py-4">
                     No comments yet
                   </p>
                 ) : (
-                  comments.map((comment) => (
+                  (comments || []).map((comment) => (
                     <div
                       key={comment.id}
                       className="border-l-4 border-primary-500 pl-3 py-2"
@@ -442,6 +483,72 @@ export default function AbstractDetailPage() {
           isOpen={changelogModalOpen}
           onClose={() => setChangelogModalOpen(false)}
         />
+
+        {/* Approve Modal */}
+        {approveModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="fixed inset-0 bg-black/50 transition-opacity"
+              onClick={() => setApproveModalOpen(false)}
+            />
+            <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Approve Abstract</h2>
+                <button
+                  onClick={() => setApproveModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Grade/Points
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={approvePoints}
+                    onChange={(e) => setApprovePoints(e.target.value === '' ? '' : parseInt(e.target.value))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Enter points (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Note (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={approveNote}
+                    onChange={(e) => setApproveNote(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Add a note for this approval..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleApproveSubmit}
+                    disabled={actionLoading}
+                    className="flex-1 px-4 py-2 bg-accent-green text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading ? 'Approving...' : 'Confirm Approval'}
+                  </button>
+                  <button
+                    onClick={() => setApproveModalOpen(false)}
+                    disabled={actionLoading}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
       <Footer />

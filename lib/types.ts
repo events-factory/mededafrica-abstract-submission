@@ -34,6 +34,7 @@ export interface Abstract {
   abstractBody: string
   submittedBy: string
   status: 'pending' | 'approved' | 'rejected' | 'more_info_requested'
+  points?: number | null
   reviewNote?: string
   reviewedBy?: string
   reviewedAt?: string

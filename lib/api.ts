@@ -108,6 +108,13 @@ export const authApi = {
       localStorage.removeItem('user')
     }
   },
+
+  updatePassword: async (currentPassword: string, newPassword: string) => {
+    return apiRequest<{ message: string }>('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+  },
 }
 
 // Abstracts API
@@ -144,10 +151,10 @@ export const abstractsApi = {
     })
   },
 
-  approve: async (id: number, note?: string) => {
+  approve: async (id: number, note?: string, points?: number) => {
     return apiRequest<Abstract>(`/abstracts/${id}/approve`, {
       method: 'PATCH',
-      body: JSON.stringify({ note }),
+      body: JSON.stringify({ note, points }),
     })
   },
 

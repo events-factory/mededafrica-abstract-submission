@@ -210,10 +210,15 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{abstract.title}</h1>
-              <div className="mt-2">
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeClass(abstract.status)}`}>
                   {getStatusText(abstract.status)}
                 </span>
+                {abstract.points != null && (
+                  <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-semibold">
+                    {abstract.points} points
+                  </span>
+                )}
               </div>
             </div>
 
@@ -258,6 +263,11 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
                 <p className="text-green-700">
                   Congratulations! Your abstract has been approved for presentation at the conference.
                 </p>
+                {abstract.points != null && (
+                  <p className="text-green-700 mt-2">
+                    <strong>Score:</strong> {abstract.points} points
+                  </p>
+                )}
               </div>
             )}
 

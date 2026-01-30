@@ -148,7 +148,7 @@ export default function SubmitAbstractPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
       <Header />
-      <div className="flex-1 px-4">
+      <div className="flex-1 px-4 pb-8">
         <div className="max-w-4xl mx-auto">
           {/* Page Header */}
           <div className="bg-white rounded-lg shadow-md p-6 my-6">

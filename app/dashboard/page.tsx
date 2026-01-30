@@ -39,7 +39,7 @@ export default function DashboardPage() {
     setLoading(true);
     const response = await abstractsApi.getAll();
 
-    if (response.data) {
+    if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
     } else {
       // Use mock data if API fails (Demo mode)
@@ -74,15 +74,16 @@ export default function DashboardPage() {
     );
   };
 
+  const safeAbstracts = abstracts || [];
   const filteredAbstracts =
     filter === 'all'
-      ? abstracts
-      : abstracts.filter((abstract) => abstract.status === filter);
+      ? safeAbstracts
+      : safeAbstracts.filter((abstract) => abstract.status === filter);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 pb-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
       <Header />
-      <div className="max-w-7xl mx-auto mt-6">
+      <div className="flex-1 max-w-7xl mx-auto mt-6 px-4 pb-8 w-full">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div>
@@ -106,7 +107,7 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              All ({abstracts.length})
+              All ({safeAbstracts.length})
             </button>
             <button
               onClick={() => setFilter('pending')}
@@ -116,7 +117,7 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Pending ({abstracts.filter((a) => a.status === 'pending').length})
+              Pending ({safeAbstracts.filter((a) => a.status === 'pending').length})
             </button>
             <button
               onClick={() => setFilter('approved')}
@@ -127,7 +128,7 @@ export default function DashboardPage() {
               }`}
             >
               Approved (
-              {abstracts.filter((a) => a.status === 'approved').length})
+              {safeAbstracts.filter((a) => a.status === 'approved').length})
             </button>
             <button
               onClick={() => setFilter('rejected')}
@@ -138,7 +139,7 @@ export default function DashboardPage() {
               }`}
             >
               Rejected (
-              {abstracts.filter((a) => a.status === 'rejected').length})
+              {safeAbstracts.filter((a) => a.status === 'rejected').length})
             </button>
             <button
               onClick={() => setFilter('more_info_requested')}
@@ -149,7 +150,7 @@ export default function DashboardPage() {
               }`}
             >
               More Info Requested (
-              {abstracts.filter((a) => a.status === 'more_info_requested').length})
+              {safeAbstracts.filter((a) => a.status === 'more_info_requested').length})
             </button>
           </div>
         </div>
@@ -184,6 +185,9 @@ export default function DashboardPage() {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">
+                      Points
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">
                       Submitted
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">
@@ -214,6 +218,13 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-4">
                         {getStatusBadge(abstract.status)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {abstract.points != null ? (
+                          <span className="font-medium text-primary-600">{abstract.points}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(abstract.createdAt).toLocaleDateString()}

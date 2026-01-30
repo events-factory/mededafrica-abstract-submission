@@ -7,6 +7,7 @@ import { authApi } from '@/lib/api'
 import type { User } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import ChangePasswordModal from '@/components/ChangePasswordModal'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -16,6 +17,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -396,9 +398,18 @@ export default function ProfilePage() {
 
             {/* Account Status */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Account Status
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Account Status
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalOpen(true)}
+                  className="px-4 py-2 border border-primary-500 text-primary-500 rounded-lg hover:bg-primary-50 transition-colors font-medium text-sm"
+                >
+                  Change Password
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -451,6 +462,12 @@ export default function ProfilePage() {
         </div>
       </div>
       <Footer />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+      />
     </div>
   )
 }

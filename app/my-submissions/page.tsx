@@ -110,7 +110,7 @@ export default function MySubmissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
       {/* Page Header */}
@@ -121,7 +121,7 @@ export default function MySubmissionsPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex flex-wrap gap-2">
@@ -257,6 +257,11 @@ export default function MySubmissionsPage() {
                     <p className="text-sm text-green-800 font-medium">
                       ✅ Congratulations! Your abstract has been approved for presentation.
                     </p>
+                    {abstract.points != null && (
+                      <p className="text-sm text-green-700 mt-1">
+                        <strong>Score:</strong> {abstract.points} points
+                      </p>
+                    )}
                   </div>
                 )}
 
