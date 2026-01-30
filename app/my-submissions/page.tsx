@@ -156,14 +156,14 @@ export default function MySubmissionsPage() {
               Approved ({abstracts.filter((a) => a.status === 'approved').length})
             </button>
             <button
-              onClick={() => setFilter('info_requested')}
+              onClick={() => setFilter('more_info_requested')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === 'info_requested'
+                filter === 'more_info_requested'
                   ? 'bg-primary-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Info Requested ({abstracts.filter((a) => a.status === 'info_requested').length})
+              Info Requested ({abstracts.filter((a) => a.status === 'more_info_requested').length})
             </button>
             <button
               onClick={() => setFilter('rejected')}
@@ -226,7 +226,7 @@ export default function MySubmissionsPage() {
                 <div className="border-t border-gray-200 pt-3 mt-3">
                   <div className="flex justify-between items-center text-sm text-gray-500">
                     <span>
-                      Submitted: {new Date(abstract.submittedAt).toLocaleDateString('en-US', {
+                      Submitted: {new Date(abstract.createdAt).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -244,7 +244,7 @@ export default function MySubmissionsPage() {
                   </div>
                 </div>
 
-                {abstract.status === 'info_requested' && (
+                {abstract.status === 'more_info_requested' && (
                   <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-sm text-yellow-800 font-medium">
                       ⚠️ The reviewer has requested additional information for this abstract.
