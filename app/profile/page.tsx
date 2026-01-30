@@ -416,7 +416,7 @@ export default function ProfilePage() {
                     Account Type
                   </label>
                   <div className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900 font-medium">
-                    {user.isStaff ? 'Staff / Reviewer' : 'Submitter'}
+                    {user.isStaff ? 'Reviewer' : 'Submitter'}
                   </div>
                 </div>
                 <div>

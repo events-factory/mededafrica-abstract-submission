@@ -84,7 +84,7 @@ export default function Header() {
                             : 'text-gray-700 hover:bg-primary-50'
                         }`}
                       >
-                        Invite Staff
+                        Invite Reviewer
                       </Link>
                     </>
                   ) : (
@@ -213,7 +213,7 @@ export default function Header() {
                     }`}
                     onClick={() => setMenuOpen(false)}
                   >
-                    Invite Staff
+                    Invite Reviewer
                   </Link>
                 </>
               ) : (

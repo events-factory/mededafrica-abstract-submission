@@ -74,7 +74,7 @@ export default function InviteStaffPage() {
 
       if (response.data) {
         setSuccess(
-          `Staff member ${formData.firstName} ${formData.lastName} invited successfully!`
+          `Reviewer ${formData.firstName} ${formData.lastName} invited successfully!`
         )
         // Reset form
         setFormData({
@@ -85,7 +85,7 @@ export default function InviteStaffPage() {
           lastName: '',
         })
       } else {
-        setError(response.message || 'Failed to invite staff member')
+        setError(response.message || 'Failed to invite reviewer')
       }
     } catch (err) {
       setError('An error occurred. Please try again.')
@@ -101,7 +101,7 @@ export default function InviteStaffPage() {
         {/* Page Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-3xl font-bold text-primary-700">
-            Invite Staff Member
+            Invite Reviewer
           </h1>
           <p className="text-gray-600 mt-1">
             Add a new reviewer to the team
@@ -125,10 +125,10 @@ export default function InviteStaffPage() {
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Staff Member Details
+              Reviewer Details
             </h2>
             <p className="text-sm text-gray-600">
-              The new staff member will be able to review and approve/reject
+              The new reviewer will be able to review and approve/reject
               abstracts.
             </p>
           </div>
@@ -147,7 +147,7 @@ export default function InviteStaffPage() {
                 id="email"
                 name="email"
                 required
-                placeholder="staff@example.com"
+                placeholder="reviewer@example.com"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 value={formData.email}
                 onChange={handleInputChange}
@@ -257,12 +257,12 @@ export default function InviteStaffPage() {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-blue-800">
-                    Staff Account Information
+                    Reviewer Account Information
                   </h3>
                   <div className="mt-2 text-sm text-blue-700">
                     <ul className="list-disc pl-5 space-y-1">
                       <li>
-                        The new staff member will receive access to the reviewer
+                        The new reviewer will receive access to the reviewer
                         dashboard
                       </li>
                       <li>
@@ -287,7 +287,7 @@ export default function InviteStaffPage() {
                 disabled={loading}
                 className="px-8 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Inviting...' : 'Invite Staff Member'}
+                {loading ? 'Inviting...' : 'Invite Reviewer'}
               </button>
               <Link
                 href="/dashboard"
