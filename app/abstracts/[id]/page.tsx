@@ -506,15 +506,24 @@ export default function AbstractDetailPage() {
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Grade/Points
+                    Grade/Points (0-10)
                   </label>
                   <input
                     type="number"
                     min="0"
+                    max="10"
                     value={approvePoints}
-                    onChange={(e) => setApprovePoints(e.target.value === '' ? '' : parseInt(e.target.value))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setApprovePoints('');
+                      } else {
+                        const num = parseInt(val);
+                        setApprovePoints(num > 10 ? 10 : num < 0 ? 0 : num);
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Enter points (optional)"
+                    placeholder="Enter points (0-10)"
                   />
                 </div>
                 <div>
