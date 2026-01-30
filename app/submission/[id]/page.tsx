@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { abstractsApi, commentsApi, coauthorsApi } from '@/lib/api'
-import { mockAbstracts, mockComments } from '@/lib/mockData'
 import type { Abstract, AbstractComment, AbstractCoauthor } from '@/lib/types'
 import ChangelogModal from '@/components/ChangelogModal'
 import Header from '@/components/Header'
@@ -63,12 +62,6 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
           return
         }
         setAbstract(abstractResponse.data)
-      } else {
-        // Demo mode: use mock data
-        const mockAbstract = mockAbstracts.find((a) => a.id === abstractId)
-        if (mockAbstract) {
-          setAbstract(mockAbstract)
-        }
       }
 
       // Fetch comments
@@ -76,9 +69,6 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
 
       if (commentsResponse.data) {
         setComments(commentsResponse.data)
-      } else {
-        // Demo mode: use mock comments
-        setComments(mockComments[abstractId] || [])
       }
 
       // Fetch co-authors
@@ -88,13 +78,6 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
       }
     } catch (error) {
       console.error('Error fetching abstract:', error)
-      // Demo mode fallback
-      const abstractId = parseInt(id)
-      const mockAbstract = mockAbstracts.find((a) => a.id === abstractId)
-      if (mockAbstract) {
-        setAbstract(mockAbstract)
-      }
-      setComments(mockComments[abstractId] || [])
     } finally {
       setLoading(false)
     }

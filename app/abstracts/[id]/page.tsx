@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { abstractsApi, commentsApi } from '@/lib/api';
 import type { Abstract, AbstractComment } from '@/lib/types';
-import { mockAbstracts, mockComments } from '@/lib/mockData';
 import ChangelogModal from '@/components/ChangelogModal';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -51,16 +50,9 @@ export default function AbstractDetailPage() {
 
     if (response.data) {
       setAbstract(response.data);
+      setError('');
     } else {
-      // Use mock data if API fails (Demo mode)
-      const mockAbstract = mockAbstracts.find((a) => a.id === abstractId);
-      if (mockAbstract) {
-        console.log('API failed, using mock data for demo');
-        setAbstract(mockAbstract);
-        setError('');
-      } else {
-        setError('Abstract not found');
-      }
+      setError('Abstract not found');
     }
     setLoading(false);
   };
@@ -70,10 +62,6 @@ export default function AbstractDetailPage() {
 
     if (response.data && Array.isArray(response.data)) {
       setComments(response.data);
-    } else {
-      // Use mock comments if API fails (Demo mode)
-      const mockCommentsForAbstract = mockComments[abstractId] || [];
-      setComments(mockCommentsForAbstract);
     }
   };
 
@@ -109,18 +97,7 @@ export default function AbstractDetailPage() {
       const statusLabel = status.replace(/_/g, ' ');
       alert(`Abstract ${statusLabel} successfully!`);
     } else {
-      // Demo mode: Update status locally
-      console.log('API failed, updating status locally for demo');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const updatedAbstract = {
-        ...abstract,
-        status,
-        reviewedBy: user.email || 'demo-reviewer@example.com',
-        reviewedAt: new Date().toISOString(),
-      };
-      setAbstract(updatedAbstract);
-      const statusLabel = status.replace(/_/g, ' ');
-      alert(`Abstract ${statusLabel} successfully! (Demo Mode)`);
+      alert('Failed to update abstract status');
     }
     setActionLoading(false);
   };
@@ -136,17 +113,7 @@ export default function AbstractDetailPage() {
       setAbstract(response.data);
       alert('Abstract approved successfully!');
     } else {
-      // Demo mode: Update status locally
-      console.log('API failed, updating status locally for demo');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const updatedAbstract = {
-        ...abstract,
-        status: 'approved' as const,
-        reviewedBy: user.email || 'demo-reviewer@example.com',
-        reviewedAt: new Date().toISOString(),
-      };
-      setAbstract(updatedAbstract);
-      alert('Abstract approved successfully! (Demo Mode)');
+      alert('Failed to approve abstract');
     }
 
     setApproveModalOpen(false);
@@ -166,19 +133,7 @@ export default function AbstractDetailPage() {
       setComments([...comments, response.data]);
       setNewComment('');
     } else {
-      // Demo mode: Add comment locally
-      console.log('API failed, adding comment locally for demo');
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const mockComment: AbstractComment = {
-        id: Date.now(),
-        abstractId,
-        comment: newComment,
-        submittedBy: user.email || 'demo-reviewer@example.com',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setComments([...comments, mockComment]);
-      setNewComment('');
+      alert('Failed to add comment');
     }
     setCommentLoading(false);
   };

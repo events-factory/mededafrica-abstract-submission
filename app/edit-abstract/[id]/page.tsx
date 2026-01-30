@@ -16,12 +16,12 @@ const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), {
 })
 
 const SUB_THEME_CATEGORIES = [
-  { value: 'THEME_1', label: 'Leadership, Governance, and African Ownership in Health Professions Education' },
-  { value: 'THEME_2', label: 'Transformative Technologies, AI, and Innovation in Medical Education' },
-  { value: 'THEME_3', label: 'Simulation-Based Education and Experiential Learning' },
-  { value: 'THEME_4', label: 'Partnerships for Health Workforce and Systems Strengthening' },
-  { value: 'THEME_5', label: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' },
-  { value: 'THEME_6', label: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change' },
+  { value: 'Leadership, Governance, and African Ownership in Health Professions Education', label: 'Leadership, Governance, and African Ownership in Health Professions Education' },
+  { value: 'Transformative Technologies, AI, and Innovation in Medical Education', label: 'Transformative Technologies, AI, and Innovation in Medical Education' },
+  { value: 'Simulation-Based Education and Experiential Learning', label: 'Simulation-Based Education and Experiential Learning' },
+  { value: 'Partnerships for Health Workforce and Systems Strengthening', label: 'Partnerships for Health Workforce and Systems Strengthening' },
+  { value: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health', label: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' },
+  { value: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change', label: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change' },
 ]
 
 const PRESENTATION_TYPES = [
@@ -40,7 +40,7 @@ export default function EditAbstractPage({ params }: { params: Promise<{ id: str
   const [abstract, setAbstract] = useState<Abstract | null>(null)
 
   const [formData, setFormData] = useState<{
-    subThemeCategory: 'THEME_1' | 'THEME_2' | 'THEME_3' | 'THEME_4' | 'THEME_5' | 'THEME_6'
+    subThemeCategory: 'Leadership, Governance, and African Ownership in Health Professions Education' | 'Transformative Technologies, AI, and Innovation in Medical Education' | 'Simulation-Based Education and Experiential Learning' | 'Partnerships for Health Workforce and Systems Strengthening' | 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' | 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change'
     title: string
     authorInformation: string
     presentationType: 'Oral' | 'Poster' | 'Workshop'
@@ -52,7 +52,7 @@ export default function EditAbstractPage({ params }: { params: Promise<{ id: str
     deanContact: string
     abstractBody: string
   }>({
-    subThemeCategory: 'THEME_1',
+    subThemeCategory: 'Leadership, Governance, and African Ownership in Health Professions Education',
     title: '',
     authorInformation: '',
     presentationType: 'Oral',
@@ -122,10 +122,10 @@ export default function EditAbstractPage({ params }: { params: Promise<{ id: str
 
         // Populate form with existing data
         setFormData({
-          subThemeCategory: abstractData.subThemeCategory,
+          subThemeCategory: abstractData.subThemeCategory as 'Leadership, Governance, and African Ownership in Health Professions Education' | 'Transformative Technologies, AI, and Innovation in Medical Education' | 'Simulation-Based Education and Experiential Learning' | 'Partnerships for Health Workforce and Systems Strengthening' | 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' | 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change',
           title: abstractData.title,
           authorInformation: abstractData.authorInformation,
-          presentationType: abstractData.presentationType,
+          presentationType: abstractData.presentationType as 'Oral' | 'Poster' | 'Workshop',
           presenterFullName: abstractData.presenterFullName,
           presenterEmail: abstractData.presenterEmail,
           presenterPhone: abstractData.presenterPhone,

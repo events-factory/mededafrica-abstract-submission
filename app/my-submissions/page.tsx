@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { abstractsApi } from '@/lib/api'
-import { mockAbstracts } from '@/lib/mockData'
 import type { Abstract, User } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -47,24 +46,9 @@ export default function MySubmissionsPage() {
           (abstract) => abstract.submittedBy === userEmail
         )
         setAbstracts(userAbstracts)
-      } else {
-        // Demo mode: filter mock data by userEmail
-        const userAbstracts = mockAbstracts.filter(
-          (abstract) => abstract.submittedBy === userEmail
-        )
-        setAbstracts(userAbstracts)
       }
     } catch (error) {
       console.error('Error fetching abstracts:', error)
-      // Demo mode fallback
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        const user: User = JSON.parse(userStr)
-        const userAbstracts = mockAbstracts.filter(
-          (abstract) => abstract.submittedBy === user.email
-        )
-        setAbstracts(userAbstracts)
-      }
     } finally {
       setLoading(false)
     }

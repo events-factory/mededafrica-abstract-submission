@@ -15,12 +15,12 @@ const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), {
 })
 
 const SUB_THEME_CATEGORIES = [
-  { value: 'THEME_1', label: 'Leadership, Governance, and African Ownership in Health Professions Education' },
-  { value: 'THEME_2', label: 'Transformative Technologies, AI, and Innovation in Medical Education' },
-  { value: 'THEME_3', label: 'Simulation-Based Education and Experiential Learning' },
-  { value: 'THEME_4', label: 'Partnerships for Health Workforce and Systems Strengthening' },
-  { value: 'THEME_5', label: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' },
-  { value: 'THEME_6', label: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change' },
+  { value: 'Leadership, Governance, and African Ownership in Health Professions Education', label: 'Leadership, Governance, and African Ownership in Health Professions Education' },
+  { value: 'Transformative Technologies, AI, and Innovation in Medical Education', label: 'Transformative Technologies, AI, and Innovation in Medical Education' },
+  { value: 'Simulation-Based Education and Experiential Learning', label: 'Simulation-Based Education and Experiential Learning' },
+  { value: 'Partnerships for Health Workforce and Systems Strengthening', label: 'Partnerships for Health Workforce and Systems Strengthening' },
+  { value: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health', label: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' },
+  { value: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change', label: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change' },
 ]
 
 const PRESENTATION_TYPES = [
@@ -36,7 +36,7 @@ export default function SubmitAbstractPage() {
   const [success, setSuccess] = useState(false)
 
   const [formData, setFormData] = useState<{
-    subThemeCategory: '' | 'THEME_1' | 'THEME_2' | 'THEME_3' | 'THEME_4' | 'THEME_5' | 'THEME_6'
+    subThemeCategory: string
     title: string
     authorInformation: string
     presentationType: '' | 'Oral' | 'Poster' | 'Workshop'

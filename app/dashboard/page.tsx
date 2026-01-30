@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { abstractsApi } from '@/lib/api';
 import type { Abstract } from '@/lib/types';
-import { mockAbstracts } from '@/lib/mockData';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -41,11 +40,9 @@ export default function DashboardPage() {
 
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
-    } else {
-      // Use mock data if API fails (Demo mode)
-      console.log('API failed, using mock data for demo');
-      setAbstracts(mockAbstracts);
       setError('');
+    } else {
+      setError('Failed to load abstracts');
     }
     setLoading(false);
   };
@@ -83,7 +80,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
       <Header />
-      <div className="flex-1 max-w-7xl mx-auto mt-6 px-4 pb-8 w-full">
+      <div className="flex-1 max-w-[1600px] mx-auto mt-6 px-4 pb-8 w-full">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div>

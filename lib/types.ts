@@ -21,7 +21,7 @@ export interface User {
 
 export interface Abstract {
   id: number
-  subThemeCategory: 'THEME_1' | 'THEME_2' | 'THEME_3' | 'THEME_4' | 'THEME_5' | 'THEME_6'
+  subThemeCategory: string
   title: string
   authorInformation: string
   presentationType: 'Oral' | 'Poster' | 'Workshop'
