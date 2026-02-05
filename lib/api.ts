@@ -226,6 +226,21 @@ export const commentsApi = {
   },
 }
 
+// Users API (for staff to view participants)
+export const usersApi = {
+  getAll: async () => {
+    return apiRequest<User[]>('/users', {
+      method: 'GET',
+    })
+  },
+
+  getById: async (id: number) => {
+    return apiRequest<User>(`/users/${id}`, {
+      method: 'GET',
+    })
+  },
+}
+
 // Co-authors API
 export const coauthorsApi = {
   invite: async (abstractId: number, email: string) => {

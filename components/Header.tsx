@@ -77,6 +77,16 @@ export default function Header() {
                         Dashboard
                       </Link>
                       <Link
+                        href="/participants"
+                        className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                          isActive('/participants')
+                            ? 'bg-primary-500 text-white'
+                            : 'text-gray-700 hover:bg-primary-50'
+                        }`}
+                      >
+                        Participants
+                      </Link>
+                      <Link
                         href="/invite-staff"
                         className={`px-4 py-2 rounded-lg transition-colors font-medium ${
                           isActive('/invite-staff')
@@ -203,6 +213,17 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                   >
                     Dashboard
+                  </Link>
+                  <Link
+                    href="/participants"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/participants')
+                        ? 'bg-primary-500 text-white'
+                        : 'text-gray-700 hover:bg-primary-50'
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Participants
                   </Link>
                   <Link
                     href="/invite-staff"
