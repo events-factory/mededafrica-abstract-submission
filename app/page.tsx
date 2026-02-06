@@ -16,8 +16,8 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="max-w-md mx-auto">
-          {/* Single Card */}
+        <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-6">
+          {/* Login Card */}
           <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
             <div className="text-center mb-6">
               <div className="w-20 h-20 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -53,6 +53,44 @@ export default function Home() {
               >
                 Create Account
               </Link>
+            </div>
+          </div>
+
+          {/* Conference Registration Card */}
+          <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-10 h-10 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                Conference Registration
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Register to attend the MedEdAfrica2026
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Link
+                href="/register-conference"
+                className="block w-full bg-green-500 text-white text-center py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold"
+              >
+                Register for the Conference
+              </Link>
+              <p className="text-sm text-gray-500 text-center">
+                06-08 July 2025 | Addis Ababa, Ethiopia
+              </p>
             </div>
           </div>
         </div>

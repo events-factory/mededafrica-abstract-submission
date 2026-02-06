@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { abstractsApi } from '@/lib/api'
 import type { Abstract, User } from '@/lib/types'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import AppLayout from '@/components/AppLayout'
 
 export default function MySubmissionsPage() {
   const router = useRouter()
@@ -94,20 +93,24 @@ export default function MySubmissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
-
-      {/* Page Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-2xl font-bold text-primary-700">My Submissions</h1>
-          <p className="text-sm text-gray-600 mt-1">Track your submitted abstracts</p>
+    <AppLayout>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Page Header */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-primary-100 rounded-lg">
+              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">My Submissions</h1>
+              <p className="text-gray-500 text-sm">Track your submitted abstracts</p>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilter('all')}
@@ -164,7 +167,7 @@ export default function MySubmissionsPage() {
 
         {/* Abstracts List */}
         {filteredAbstracts.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
             <div className="text-gray-400 text-5xl mb-4">📝</div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No submissions found</h3>
             <p className="text-gray-600 mb-6">
@@ -184,7 +187,7 @@ export default function MySubmissionsPage() {
             {filteredAbstracts.map((abstract) => (
               <div
                 key={abstract.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow"
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
@@ -269,8 +272,7 @@ export default function MySubmissionsPage() {
             ))}
           </div>
         )}
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </AppLayout>
   )
 }
