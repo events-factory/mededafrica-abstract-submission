@@ -15,6 +15,7 @@ export interface User {
   profilePicture?: string
   isActive: boolean
   isStaff: boolean
+  isSuperAdmin: boolean
   createdAt: string
   updatedAt: string
 }

@@ -17,16 +17,21 @@ A comprehensive Next.js application for managing conference abstract submissions
   - Optional Dean/Provost contact
   - Abstract Body (max 300 words with rich text formatting)
 
-### For Reviewers
+### For Reviewers (Staff)
 - User registration and login
 - Dashboard to view all submitted abstracts
 - Filter abstracts by status (pending, approved, rejected, info requested)
 - Detailed abstract preview
 - Comment on abstracts
 - Action buttons to:
-  - Approve abstracts
-  - Reject abstracts
   - Request more information
+  - Add comments for feedback
+
+### For Super Admins
+- All reviewer capabilities plus:
+  - **Approve abstracts** with points (0-10) and optional notes
+  - **Reject abstracts** with feedback
+  - Full control over abstract status management
 
 ## Technology Stack
 

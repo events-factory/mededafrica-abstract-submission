@@ -137,8 +137,8 @@ export default function InviteStaffPage() {
               Reviewer Details
             </h2>
             <p className="text-sm text-gray-600">
-              The new reviewer will be able to review and approve/reject
-              abstracts.
+              The new reviewer will be able to review abstracts and request more
+              information. Only super admins can approve or reject abstracts.
             </p>
           </div>
 
@@ -275,10 +275,12 @@ export default function InviteStaffPage() {
                         dashboard
                       </li>
                       <li>
-                        They can review, approve, reject, and request more
-                        information on abstracts
+                        They can review and request more information on abstracts
                       </li>
                       <li>They can add comments to any abstract</li>
+                      <li>
+                        Note: Only super admins can approve or reject abstracts
+                      </li>
                       <li>
                         Make sure to share the login credentials securely with
                         the new team member

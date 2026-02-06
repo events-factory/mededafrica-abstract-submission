@@ -26,6 +26,7 @@ function LoginForm() {
       lastName: 'Reviewer',
       isActive: true,
       isStaff: true,
+      isSuperAdmin: false, // Set to true for super admin demo
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
