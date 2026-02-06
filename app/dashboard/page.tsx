@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { abstractsApi } from '@/lib/api';
 import type { Abstract } from '@/lib/types';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import AppLayout from '@/components/AppLayout';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,7 +17,6 @@ export default function DashboardPage() {
   >('all');
 
   useEffect(() => {
-    // Check authentication
     const user = localStorage.getItem('user');
     if (!user) {
       router.push('/auth/login?role=reviewer');
@@ -78,23 +76,25 @@ export default function DashboardPage() {
       : safeAbstracts.filter((abstract) => abstract.status === filter);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
-      <Header />
-      <div className="flex-1 max-w-[1600px] mx-auto mt-6 px-4 pb-8 w-full">
+    <AppLayout>
+      <div className="max-w-[1600px] mx-auto px-4 py-8">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div>
-              <h1 className="text-3xl font-bold text-primary-700">
-                Abstract Review Dashboard
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Review and manage submitted abstracts
-              </p>
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-primary-100 rounded-lg">
+              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
             </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Abstract Review Dashboard</h1>
+              <p className="text-gray-500 text-sm">Review and manage submitted abstracts</p>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilter('all')}
@@ -153,7 +153,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Abstracts Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-500">
               Loading abstracts...
@@ -242,7 +242,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-      <Footer />
-    </div>
+    </AppLayout>
   );
 }

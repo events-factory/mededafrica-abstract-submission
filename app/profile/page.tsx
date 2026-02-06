@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authApi } from '@/lib/api'
 import type { User } from '@/lib/types'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import AppLayout from '@/components/AppLayout'
 import ChangePasswordModal from '@/components/ChangePasswordModal'
 
 export default function ProfilePage() {
@@ -172,32 +171,44 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
-      <Header />
+    <AppLayout>
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Page Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-3xl font-bold text-primary-700">My Profile</h1>
-          <p className="text-gray-600 mt-1">
-            View and manage your account information
-          </p>
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-primary-100 rounded-lg">
+              <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+              <p className="text-gray-500 text-sm">View and manage your account information</p>
+            </div>
+          </div>
         </div>
 
         {/* Success/Error Messages */}
         {success && (
-          <div className="mb-6 p-4 bg-accent-green/20 border border-accent-green text-green-800 rounded-lg">
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center gap-3">
+            <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
             {success}
           </div>
         )}
 
         {error && (
-          <div className="mb-6 p-4 bg-accent-red/10 border border-accent-red text-accent-red rounded-lg">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
             {error}
           </div>
         )}
 
         {/* Profile Form */}
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="bg-white rounded-xl shadow-sm p-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800">
               Account Information
@@ -461,13 +472,12 @@ export default function ProfilePage() {
           </form>
         </div>
       </div>
-      <Footer />
 
       {/* Change Password Modal */}
       <ChangePasswordModal
         isOpen={passwordModalOpen}
         onClose={() => setPasswordModalOpen(false)}
       />
-    </div>
+    </AppLayout>
   )
 }
