@@ -38,6 +38,7 @@ function RegisterForm() {
       country: formData.country,
       isActive: true,
       isStaff: false,
+      isSuperAdmin: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
