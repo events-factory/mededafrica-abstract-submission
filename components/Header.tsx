@@ -96,6 +96,16 @@ export default function Header() {
                       >
                         Invite Reviewer
                       </Link>
+                      <Link
+                        href="/invite-delegates"
+                        className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                          isActive('/invite-delegates')
+                            ? 'bg-primary-500 text-white'
+                            : 'text-gray-700 hover:bg-primary-50'
+                        }`}
+                      >
+                        Invite Delegate
+                      </Link>
                     </>
                   ) : (
                     <>
@@ -235,6 +245,17 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                   >
                     Invite Reviewer
+                  </Link>
+                  <Link
+                    href="/invite-delegates"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/invite-delegates')
+                        ? 'bg-primary-500 text-white'
+                        : 'text-gray-700 hover:bg-primary-50'
+                    }`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Invite Delegate
                   </Link>
                 </>
               ) : (

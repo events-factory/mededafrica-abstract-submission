@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { usersApi } from '@/lib/api';
 import type { User } from '@/lib/types';
 import { mockParticipants } from '@/lib/mockData';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import AppLayout from '@/components/AppLayout';
 
 export default function ParticipantsPage() {
   const router = useRouter();
@@ -63,21 +62,23 @@ export default function ParticipantsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
-      <Header />
-      <div className="max-w-7xl mx-auto my-6">
+    <AppLayout>
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-primary-700">
-                Participants List
-              </h1>
-              <p className="text-gray-600 mt-1">
-                View all registered participants
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary-100 rounded-lg">
+                <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Participants List</h1>
+                <p className="text-gray-500 text-sm">View all registered participants</p>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 bg-primary-50 px-4 py-2 rounded-lg">
               Total Participants:{' '}
               <span className="font-semibold text-primary-600">
                 {participants.length}
@@ -87,7 +88,7 @@ export default function ParticipantsPage() {
         </div>
 
         {/* Search */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="relative">
             <input
               type="text"
@@ -113,7 +114,7 @@ export default function ParticipantsPage() {
         </div>
 
         {/* Participants Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-500">
               Loading participants...
@@ -206,35 +207,52 @@ export default function ParticipantsPage() {
         {/* Summary Stats */}
         {!loading && filteredParticipants.length > 0 && (
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="text-sm text-gray-600">Total Participants</div>
-              <div className="text-2xl font-bold text-primary-600">
-                {participants.length}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Total Participants</div>
+                  <div className="text-2xl font-bold text-gray-900">{participants.length}</div>
+                </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="text-sm text-gray-600">Countries Represented</div>
-              <div className="text-2xl font-bold text-primary-600">
-                {
-                  new Set(participants.map((p) => p.country).filter(Boolean))
-                    .size
-                }
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Countries Represented</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {new Set(participants.map((p) => p.country).filter(Boolean)).size}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="text-sm text-gray-600">Organizations</div>
-              <div className="text-2xl font-bold text-primary-600">
-                {
-                  new Set(
-                    participants.map((p) => p.companyName).filter(Boolean),
-                  ).size
-                }
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Organizations</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {new Set(participants.map((p) => p.companyName).filter(Boolean)).size}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
-      <Footer />
-    </div>
+    </AppLayout>
   );
 }
