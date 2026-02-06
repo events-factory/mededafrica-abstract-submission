@@ -25,6 +25,7 @@ export default function AbstractDetailPage() {
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [approveNote, setApproveNote] = useState('');
   const [approvePoints, setApprovePoints] = useState<number | ''>('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
     // Check authentication
@@ -39,6 +40,9 @@ export default function AbstractDetailPage() {
       router.push('/');
       return;
     }
+
+    // Set super admin status
+    setIsSuperAdmin(userData.isSuperAdmin || false);
 
     fetchAbstractDetails();
     fetchComments();
@@ -216,13 +220,24 @@ export default function AbstractDetailPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleStatusUpdate('approved')}
-                disabled={actionLoading || abstract.status === 'approved'}
-                className="px-4 py-2 bg-accent-green text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Approve
-              </button>
+              {isSuperAdmin && (
+                <>
+                  <button
+                    onClick={() => handleStatusUpdate('approved')}
+                    disabled={actionLoading || abstract.status === 'approved'}
+                    className="px-4 py-2 bg-accent-green text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleStatusUpdate('rejected')}
+                    disabled={actionLoading || abstract.status === 'rejected'}
+                    className="px-4 py-2 bg-accent-red text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => handleStatusUpdate('more_info_requested')}
                 disabled={
@@ -231,13 +246,6 @@ export default function AbstractDetailPage() {
                 className="px-4 py-2 bg-primary-light text-white rounded-lg hover:bg-[#3da0d4] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Request More Info
-              </button>
-              <button
-                onClick={() => handleStatusUpdate('rejected')}
-                disabled={actionLoading || abstract.status === 'rejected'}
-                className="px-4 py-2 bg-accent-red text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Reject
               </button>
             </div>
           </div>
