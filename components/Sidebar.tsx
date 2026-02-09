@@ -223,7 +223,7 @@ export default function Sidebar() {
               </div>
 
               <NavLink href="/invite-staff" icon={InviteReviewerIcon} label="Invite Reviewer" />
-              <NavLink href="/invite-delegates" icon={InviteDelegateIcon} label="Invite Delegate" />
+              {/* <NavLink href="/invite-delegates" icon={InviteDelegateIcon} label="Invite Delegate" /> */}
             </>
           ) : (
             <>
