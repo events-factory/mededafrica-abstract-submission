@@ -105,3 +105,15 @@ export interface Changelog {
   currentVersion: Abstract
   changes: ChangelogEntry[]
 }
+
+export interface StaffTopicAssignment {
+  id: number
+  userId: number
+  topic: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StaffMember extends User {
+  topicAssignments: StaffTopicAssignment[]
+}

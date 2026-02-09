@@ -6,6 +6,8 @@ import {
   AbstractHistory,
   Changelog,
   ApiResponse,
+  StaffMember,
+  StaffTopicAssignment,
 } from './types';
 
 // Use local proxy to avoid CORS issues
@@ -123,6 +125,57 @@ export const authApi = {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+  },
+
+  // Staff Management APIs (Super Admin only)
+  getAllStaff: async () => {
+    console.log('Fetching all staff members...');
+    const result = await apiRequest<StaffMember[]>('/auth/staff', {
+      method: 'GET',
+    });
+    console.log('getAllStaff result:', result);
+    return result;
+  },
+
+  getStaffTopics: async (userId: number) => {
+    console.log(`Fetching topics for staff ID: ${userId}`);
+    return apiRequest<StaffTopicAssignment[]>(`/auth/staff/${userId}/topics`, {
+      method: 'GET',
+    });
+  },
+
+  assignStaffTopic: async (userId: number, topic: string) => {
+    console.log(`API call: Assigning topic "${topic}" to user ${userId}`);
+    const result = await apiRequest<StaffTopicAssignment>(
+      `/auth/staff/${userId}/topics`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ topic }),
+      }
+    );
+    console.log('assignStaffTopic result:', result);
+    if (!result.data) {
+      throw new Error(result.message || 'Failed to assign topic');
+    }
+    return result;
+  },
+
+  removeStaffTopic: async (userId: number, topic: string) => {
+    // URL-encode the topic name for special characters
+    const encodedTopic = encodeURIComponent(topic);
+    console.log(`API call: Removing topic "${topic}" (encoded: "${encodedTopic}") from user ${userId}`);
+    const result = await apiRequest<{ message: string }>(
+      `/auth/staff/${userId}/topics/${encodedTopic}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    console.log('removeStaffTopic result:', result);
+    // Check if the operation failed
+    if (result.message && !result.message.includes('removed') && !result.message.includes('success')) {
+      throw new Error(result.message || 'Failed to remove topic');
+    }
+    return result;
   },
 };
 

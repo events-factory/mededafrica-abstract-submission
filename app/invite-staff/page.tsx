@@ -6,11 +6,21 @@ import Link from 'next/link'
 import { authApi } from '@/lib/api'
 import AppLayout from '@/components/AppLayout'
 
+const SUB_THEME_CATEGORIES = [
+  'Leadership, Governance, and African Ownership in Health Professions Education',
+  'Transformative Technologies, AI, and Innovation in Medical Education',
+  'Simulation-Based Education and Experiential Learning',
+  'Partnerships for Health Workforce and Systems Strengthening',
+  'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health',
+  'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change',
+]
+
 export default function InviteStaffPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
 
   const [formData, setFormData] = useState({
     email: '',
@@ -44,6 +54,14 @@ export default function InviteStaffPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleTopicToggle = (topic: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topic)
+        ? prev.filter((t) => t !== topic)
+        : [...prev, topic]
+    )
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -64,6 +82,7 @@ export default function InviteStaffPage() {
     setLoading(true)
 
     try {
+      // Step 1: Invite the staff member
       const response = await authApi.inviteStaff({
         email: formData.email,
         password: formData.password,
@@ -72,9 +91,39 @@ export default function InviteStaffPage() {
       })
 
       if (response.data) {
-        setSuccess(
-          `Reviewer ${formData.firstName} ${formData.lastName} invited successfully!`
-        )
+        const newStaffId = response.data.id
+
+        // Step 2: Assign selected topics to the new staff member
+        if (selectedTopics.length > 0) {
+          const topicAssignmentPromises = selectedTopics.map((topic) =>
+            authApi.assignStaffTopic(newStaffId, topic)
+          )
+
+          const topicResults = await Promise.allSettled(topicAssignmentPromises)
+
+          // Check if any topic assignments failed
+          const failedTopics = topicResults
+            .map((result, index) => ({
+              result,
+              topic: selectedTopics[index],
+            }))
+            .filter(({ result }) => result.status === 'rejected')
+
+          if (failedTopics.length > 0) {
+            setSuccess(
+              `Reviewer ${formData.firstName} ${formData.lastName} invited successfully! However, some topic assignments failed. Please assign topics manually from the staff management page.`
+            )
+          } else {
+            setSuccess(
+              `Reviewer ${formData.firstName} ${formData.lastName} invited successfully with ${selectedTopics.length} topic(s) assigned!`
+            )
+          }
+        } else {
+          setSuccess(
+            `Reviewer ${formData.firstName} ${formData.lastName} invited successfully! Note: No topics were assigned.`
+          )
+        }
+
         // Reset form
         setFormData({
           email: '',
@@ -83,6 +132,7 @@ export default function InviteStaffPage() {
           firstName: '',
           lastName: '',
         })
+        setSelectedTopics([])
       } else {
         setError(response.message || 'Failed to invite reviewer')
       }
@@ -137,7 +187,7 @@ export default function InviteStaffPage() {
               Reviewer Details
             </h2>
             <p className="text-sm text-gray-600">
-              The new reviewer will be able to review abstracts and request more
+              The new reviewer will be able to review abstracts in their assigned topics and request more
               information. Only super admins can approve or reject abstracts.
             </p>
           </div>
@@ -248,6 +298,39 @@ export default function InviteStaffPage() {
               />
             </div>
 
+            {/* Topic Assignment */}
+            <div className="border-t pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Assign Topics
+              </label>
+              <p className="text-xs text-gray-500 mb-4">
+                Select the topics this reviewer will have access to. If no topics are selected, you can assign them later from the staff management page.
+              </p>
+              <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-4 bg-gray-50">
+                {SUB_THEME_CATEGORIES.map((topic) => (
+                  <label
+                    key={topic}
+                    className="flex items-start gap-3 p-3 hover:bg-white rounded-lg cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedTopics.includes(topic)}
+                      onChange={() => handleTopicToggle(topic)}
+                      className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700 flex-1">
+                      {topic}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {selectedTopics.length > 0 && (
+                <p className="text-sm text-primary-600 mt-2 font-medium">
+                  {selectedTopics.length} topic(s) selected
+                </p>
+              )}
+            </div>
+
             {/* Information Box */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start">
@@ -276,8 +359,15 @@ export default function InviteStaffPage() {
                       </li>
                       <li>
                         They can review and request more information on abstracts
+                        in their assigned topics
                       </li>
-                      <li>They can add comments to any abstract</li>
+                      <li>
+                        They can add comments to abstracts in their assigned topics
+                      </li>
+                      <li>
+                        If no topics are assigned, they won&apos;t see any abstracts until
+                        topics are assigned by a super admin
+                      </li>
                       <li>
                         Note: Only super admins can approve or reject abstracts
                       </li>
