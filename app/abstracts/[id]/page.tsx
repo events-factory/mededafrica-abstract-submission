@@ -6,8 +6,7 @@ import Link from 'next/link';
 import { abstractsApi, commentsApi } from '@/lib/api';
 import type { Abstract, AbstractComment } from '@/lib/types';
 import ChangelogModal from '@/components/ChangelogModal';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import AppLayout from '@/components/AppLayout';
 
 export default function AbstractDetailPage() {
   const router = useRouter();
@@ -168,34 +167,37 @@ export default function AbstractDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
-        <div className="text-gray-600">Loading abstract details...</div>
-      </div>
+      <AppLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-gray-600">Loading abstract details...</div>
+        </div>
+      </AppLayout>
     );
   }
 
   if (error || !abstract) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center px-4">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <div className="text-accent-red mb-4">
-            {error || 'Abstract not found'}
+      <AppLayout>
+        <div className="flex items-center justify-center px-4 py-20">
+          <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+            <div className="text-accent-red mb-4">
+              {error || 'Abstract not found'}
+            </div>
+            <Link
+              href="/dashboard"
+              className="inline-block px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+            >
+              Back to Dashboard
+            </Link>
           </div>
-          <Link
-            href="/dashboard"
-            className="inline-block px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-          >
-            Back to Dashboard
-          </Link>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col">
-      <Header />
-      <div className="flex-1 py-8 px-4">
+    <AppLayout>
+      <div className="py-8 px-4">
         <div className="max-w-5xl mx-auto">
 
         {/* Status and Actions */}
@@ -523,7 +525,6 @@ export default function AbstractDetailPage() {
         )}
         </div>
       </div>
-      <Footer />
-    </div>
+    </AppLayout>
   );
 }
