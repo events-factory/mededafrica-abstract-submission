@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PaymentModal from '@/components/PaymentModal';
+import SearchableSelect from '@/components/SearchableSelect';
 import {
   registrationApi,
   RegistrationCategory,
@@ -44,6 +45,7 @@ export default function RegisterConferencePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [paymentData, setPaymentData] = useState({
     orderId: '',
     paymentToken: '',
@@ -131,6 +133,22 @@ export default function RegisterConferencePage() {
       ...prev,
       [inputCode]: value,
     }));
+
+    // Clear field error when user starts typing
+    if (fieldErrors[inputCode]) {
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[inputCode];
+        return newErrors;
+      });
+
+      // Update general errors list as well
+      setFormErrors((prev) =>
+        prev.filter(err => !err.startsWith(
+          formGroups[currentStep]?.inputs.find(({ input }) => input.inputcode === inputCode)?.input.nameEnglish || ''
+        ))
+      );
+    }
   };
 
   const validateStep = useCallback(() => {
@@ -138,26 +156,69 @@ export default function RegisterConferencePage() {
     if (!currentGroup) return true;
 
     const errors: string[] = [];
+    const fieldErrs: Record<string, string> = {};
+
     currentGroup.inputs.forEach(({ input }) => {
-      if (input.is_mandatory === 'YES') {
-        const value = formValues[input.inputcode];
-        if (!value || (Array.isArray(value) && value.length === 0)) {
-          errors.push(`${input.nameEnglish} is required`);
+      const value = formValues[input.inputcode];
+      const isEmpty = !value || (Array.isArray(value) && value.length === 0) || (typeof value === 'string' && value.trim() === '');
+
+      // Check if required field is empty
+      if (input.is_mandatory === 'YES' && isEmpty) {
+        const errorMsg = `${input.nameEnglish} is required`;
+        errors.push(errorMsg);
+        fieldErrs[input.inputcode] = errorMsg;
+        return;
+      }
+
+      // Additional validation for specific input types
+      if (!isEmpty && typeof value === 'string') {
+        switch (input.inputtype.id) {
+          case 5: // Email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) {
+              const errorMsg = `${input.nameEnglish} must be a valid email address`;
+              errors.push(errorMsg);
+              fieldErrs[input.inputcode] = errorMsg;
+            }
+            break;
+
+          case 12: // Phone
+            const phoneRegex = /^[\d\s+()-]+$/;
+            if (!phoneRegex.test(value) || value.replace(/\D/g, '').length < 7) {
+              const errorMsg = `${input.nameEnglish} must be a valid phone number`;
+              errors.push(errorMsg);
+              fieldErrs[input.inputcode] = errorMsg;
+            }
+            break;
         }
       }
     });
 
     setFormErrors(errors);
+    setFieldErrors(fieldErrs);
+
+    // Scroll to top of form to show errors
+    if (errors.length > 0) {
+      const formElement = document.querySelector('form');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
     return errors.length === 0;
   }, [currentStep, formGroups, formValues]);
 
   const nextStep = () => {
     if (validateStep()) {
+      setFormErrors([]);
+      setFieldErrors({});
       setCurrentStep((prev) => Math.min(prev + 1, formGroups.length - 1));
     }
   };
 
   const prevStep = () => {
+    setFormErrors([]);
+    setFieldErrors({});
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
@@ -324,157 +385,202 @@ export default function RegisterConferencePage() {
   ) => {
     const inputValue = formValues[input.inputcode] || value || '';
     const isRequired = input.is_mandatory === 'YES';
+    const hasError = !!fieldErrors[input.inputcode];
+    const errorClass = hasError
+      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+      : 'border-gray-300 focus:ring-primary-500 focus:border-transparent';
 
     switch (input.inputtype.id) {
       case 1: // Text
         return (
-          <input
-            type="text"
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <input
+              type="text"
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 2: // Select
         return (
-          <select
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          >
-            <option value="">Select...</option>
-            {options.map((option) => (
-              <option key={option.id} value={option.contentEnglish}>
-                {option.contentEnglish}
-              </option>
-            ))}
-          </select>
+          <>
+            <SearchableSelect
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(newValue) => handleInputChange(input.inputcode, newValue)}
+              options={options}
+              placeholder="Select..."
+              required={isRequired}
+              hasError={hasError}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 4: // Date
         return (
-          <input
-            type="date"
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <input
+              type="date"
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 5: // Email
         return (
-          <input
-            type="email"
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <input
+              type="email"
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 8: // Number
         return (
-          <input
-            type="number"
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <input
+              type="number"
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 12: // Phone
         return (
-          <input
-            type="tel"
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <input
+              type="tel"
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 15: // Textarea
         return (
-          <textarea
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <textarea
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              rows={4}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 10: // Radio
         return (
-          <div className="space-y-2">
-            {options.map((option) => (
-              <label key={option.id} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name={input.inputcode}
-                  value={option.contentEnglish}
-                  checked={inputValue === option.contentEnglish}
-                  onChange={(e) =>
-                    handleInputChange(input.inputcode, e.target.value)
-                  }
-                  className="w-4 h-4 text-primary-500"
-                  required={isRequired}
-                />
-                <span>{option.contentEnglish}</span>
-              </label>
-            ))}
-          </div>
+          <>
+            <div className={`space-y-2 ${hasError ? 'p-3 border-2 border-red-500 rounded-lg' : ''}`}>
+              {options.map((option) => (
+                <label key={option.id} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={input.inputcode}
+                    value={option.contentEnglish}
+                    checked={inputValue === option.contentEnglish}
+                    onChange={(e) =>
+                      handleInputChange(input.inputcode, e.target.value)
+                    }
+                    className="w-4 h-4 text-primary-500"
+                    required={isRequired}
+                  />
+                  <span>{option.contentEnglish}</span>
+                </label>
+              ))}
+            </div>
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 16: // Checkbox (multiple)
         return (
-          <div className="space-y-2">
-            {options.map((option) => (
-              <label key={option.id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  value={option.contentEnglish}
-                  checked={
-                    Array.isArray(inputValue)
-                      ? inputValue.includes(option.contentEnglish)
-                      : inputValue === option.contentEnglish
-                  }
-                  onChange={(e) => {
-                    const current = Array.isArray(inputValue)
-                      ? inputValue
-                      : inputValue
-                        ? [inputValue]
-                        : [];
-                    if (e.target.checked) {
-                      handleInputChange(input.inputcode, [
-                        ...current,
-                        e.target.value,
-                      ]);
-                    } else {
-                      handleInputChange(
-                        input.inputcode,
-                        current.filter((v) => v !== e.target.value),
-                      );
+          <>
+            <div className={`space-y-2 ${hasError ? 'p-3 border-2 border-red-500 rounded-lg' : ''}`}>
+              {options.map((option) => (
+                <label key={option.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    value={option.contentEnglish}
+                    checked={
+                      Array.isArray(inputValue)
+                        ? inputValue.includes(option.contentEnglish)
+                        : inputValue === option.contentEnglish
                     }
-                  }}
-                  className="w-4 h-4 text-primary-500"
-                />
-                <span>{option.contentEnglish}</span>
-              </label>
-            ))}
-          </div>
+                    onChange={(e) => {
+                      const current = Array.isArray(inputValue)
+                        ? inputValue
+                        : inputValue
+                          ? [inputValue]
+                          : [];
+                      if (e.target.checked) {
+                        handleInputChange(input.inputcode, [
+                          ...current,
+                          e.target.value,
+                        ]);
+                      } else {
+                        handleInputChange(
+                          input.inputcode,
+                          current.filter((v) => v !== e.target.value),
+                        );
+                      }
+                    }}
+                    className="w-4 h-4 text-primary-500"
+                  />
+                  <span>{option.contentEnglish}</span>
+                </label>
+              ))}
+            </div>
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
 
       case 17: // Paragraph (display only)
@@ -486,14 +592,19 @@ export default function RegisterConferencePage() {
 
       default:
         return (
-          <input
-            type="text"
-            id={input.inputcode}
-            value={inputValue as string}
-            onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            required={isRequired}
-          />
+          <>
+            <input
+              type="text"
+              id={input.inputcode}
+              value={inputValue as string}
+              onChange={(e) => handleInputChange(input.inputcode, e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${errorClass}`}
+              required={isRequired}
+            />
+            {hasError && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors[input.inputcode]}</p>
+            )}
+          </>
         );
     }
   };
@@ -809,12 +920,30 @@ export default function RegisterConferencePage() {
 
               <form onSubmit={handleSubmit} className="p-6">
                 {formErrors.length > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <ul className="list-disc list-inside text-red-600 text-sm">
-                      {formErrors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
+                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 mb-6 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <svg
+                        className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-red-800 mb-2">
+                          Please fix the following errors:
+                        </h3>
+                        <ul className="list-disc list-inside text-red-700 text-sm space-y-1">
+                          {formErrors.map((error, index) => (
+                            <li key={index}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 )}
 
