@@ -22,9 +22,16 @@ import {
 } from '@/lib/payment';
 
 type AttendanceType = 'PHYSICAL' | 'VIRTUAL';
+type RegistrationType = 'single' | 'group';
 
 interface FormValues {
   [key: string]: string | string[];
+}
+
+interface Guest {
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
 export default function RegisterConferencePage() {
@@ -56,6 +63,11 @@ export default function RegisterConferencePage() {
   const [paymentRequired, setPaymentRequired] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
+  const [showRegistrationTypeModal, setShowRegistrationTypeModal] = useState(false);
+  const [registrationType, setRegistrationType] = useState<RegistrationType>('single');
+  const [pendingCategory, setPendingCategory] = useState<RegistrationCategory | null>(null);
+  const [guests, setGuests] = useState<Guest[]>([{ firstName: '', lastName: '', email: '' }]);
+  const [guestErrors, setGuestErrors] = useState<Record<number, Record<string, string>>>({})
 
   useEffect(() => {
     loadRegistrationPage();
@@ -128,6 +140,89 @@ export default function RegisterConferencePage() {
     setLoading(false);
   };
 
+  const handleRegisterClick = (category: RegistrationCategory) => {
+    setPendingCategory(category);
+    setShowRegistrationTypeModal(true);
+  };
+
+  const handleRegistrationTypeSelect = async (type: RegistrationType) => {
+    setRegistrationType(type);
+    setShowRegistrationTypeModal(false);
+    if (type === 'group') {
+      setGuests([{ firstName: '', lastName: '', email: '' }]);
+    }
+    if (pendingCategory) {
+      await selectCategory(pendingCategory);
+    }
+  };
+
+  const addGuest = () => {
+    setGuests((prev) => [...prev, { firstName: '', lastName: '', email: '' }]);
+  };
+
+  const removeGuest = (index: number) => {
+    setGuests((prev) => prev.filter((_, i) => i !== index));
+    setGuestErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      return newErrors;
+    });
+  };
+
+  const updateGuest = (index: number, field: keyof Guest, value: string) => {
+    setGuests((prev) =>
+      prev.map((guest, i) => (i === index ? { ...guest, [field]: value } : guest)),
+    );
+    // Clear field error on change
+    if (guestErrors[index]?.[field]) {
+      setGuestErrors((prev) => {
+        const newErrors = { ...prev };
+        if (newErrors[index]) {
+          delete newErrors[index][field];
+          if (Object.keys(newErrors[index]).length === 0) delete newErrors[index];
+        }
+        return newErrors;
+      });
+    }
+  };
+
+  const validateGuests = (): boolean => {
+    const errors: Record<number, Record<string, string>> = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    guests.forEach((guest, index) => {
+      const guestErrs: Record<string, string> = {};
+      if (!guest.firstName.trim()) guestErrs.firstName = 'First name is required';
+      if (!guest.lastName.trim()) guestErrs.lastName = 'Last name is required';
+      if (!guest.email.trim()) {
+        guestErrs.email = 'Email is required';
+      } else if (!emailRegex.test(guest.email)) {
+        guestErrs.email = 'Invalid email address';
+      }
+      if (Object.keys(guestErrs).length > 0) errors[index] = guestErrs;
+    });
+
+    setGuestErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Determine the total steps: for group registration, insert a "Group Members" step before the last form step
+  const isGroupRegistration = registrationType === 'group';
+  const groupMembersStepIndex = isGroupRegistration && formGroups.length > 0
+    ? formGroups.length - 1
+    : -1;
+  const totalSteps = isGroupRegistration ? formGroups.length + 1 : formGroups.length;
+
+  // Map currentStep to either a form group or the group members step
+  const isOnGroupMembersStep = isGroupRegistration && currentStep === groupMembersStepIndex;
+  const actualFormGroupIndex = isGroupRegistration && currentStep > groupMembersStepIndex
+    ? currentStep - 1
+    : currentStep;
+
+  // For group registration, multiply the fee by total number of participants (registrant + guests)
+  const totalParticipants = isGroupRegistration ? 1 + guests.length : 1;
+  const getPaymentAmount = (fee: string) => parseFeeAmount(fee) * totalParticipants;
+
   const handleInputChange = (inputCode: string, value: string | string[]) => {
     setFormValues((prev) => ({
       ...prev,
@@ -152,7 +247,12 @@ export default function RegisterConferencePage() {
   };
 
   const validateStep = useCallback(() => {
-    const currentGroup = formGroups[currentStep];
+    // If on group members step, validate guests instead
+    if (isOnGroupMembersStep) {
+      return validateGuests();
+    }
+
+    const currentGroup = formGroups[actualFormGroupIndex];
     if (!currentGroup) return true;
 
     const errors: string[] = [];
@@ -206,13 +306,14 @@ export default function RegisterConferencePage() {
     }
 
     return errors.length === 0;
-  }, [currentStep, formGroups, formValues]);
+  }, [currentStep, formGroups, formValues, isOnGroupMembersStep, actualFormGroupIndex, guests]);
 
   const nextStep = () => {
     if (validateStep()) {
       setFormErrors([]);
       setFieldErrors({});
-      setCurrentStep((prev) => Math.min(prev + 1, formGroups.length - 1));
+      setGuestErrors({});
+      setCurrentStep((prev) => Math.min(prev + 1, totalSteps - 1));
     }
   };
 
@@ -256,7 +357,7 @@ export default function RegisterConferencePage() {
         // Initialize payment
         const paymentSession = await initializePayment({
           orderId: paymentData.orderId,
-          amount: parseFeeAmount(selectedCategory.fee),
+          amount: getPaymentAmount(selectedCategory.fee),
           currency: extractCurrency(selectedCategory.fee),
           categoryName: selectedCategory.name_english,
           categoryId: selectedCategory.id,
@@ -280,7 +381,7 @@ export default function RegisterConferencePage() {
         // Setup payment callback
         const paymentPromise = processPayment(paymentSession, {
           orderId: paymentData.orderId,
-          amount: parseFeeAmount(selectedCategory.fee),
+          amount: getPaymentAmount(selectedCategory.fee),
           currency: extractCurrency(selectedCategory.fee),
           categoryName: selectedCategory.name_english,
           categoryId: selectedCategory.id,
@@ -351,7 +452,21 @@ export default function RegisterConferencePage() {
       formData.append('ticket_id', String(selectedCategory.id));
       formData.append('attendence_type', attendanceType || 'PHYSICAL');
       formData.append('user_language', 'english');
-      formData.append('accompanied', 'NO');
+      formData.append('accompanied', isGroupRegistration ? 'YES' : 'NO');
+
+      // Add group members data if group registration
+      if (isGroupRegistration && guests.length > 0) {
+        formData.append('registration_type', 'group');
+        formData.append('group_members', JSON.stringify(
+          guests.map((guest) => ({
+            first_name: guest.firstName,
+            last_name: guest.lastName,
+            email: guest.email,
+          }))
+        ));
+      } else {
+        formData.append('registration_type', 'single');
+      }
 
       // Add payment data if payment was processed
       if (paymentResult && paymentResult.success) {
@@ -860,7 +975,7 @@ export default function RegisterConferencePage() {
                             : `Registration closes: ${category.end_date}`}
                         </p>
                         <button
-                          onClick={() => selectCategory(category)}
+                          onClick={() => handleRegisterClick(category)}
                           className={`w-full py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
                             isFree
                               ? 'bg-green-500 text-white hover:bg-green-600'
@@ -893,27 +1008,37 @@ export default function RegisterConferencePage() {
           ) : (
             /* Registration Form */
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              {/* Form Steps */}
-              {formGroups.length > 1 && (
+              {/* Form Steps / Tabs */}
+              {totalSteps > 1 && (
                 <div className="bg-gray-50 px-6 py-4 border-b">
                   <div className="flex gap-2 overflow-x-auto">
-                    {formGroups.map((group, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          if (index < currentStep) setCurrentStep(index);
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                          index === currentStep
-                            ? 'bg-primary-500 text-white'
-                            : index < currentStep
-                              ? 'bg-primary-100 text-primary-700'
-                              : 'bg-gray-200 text-gray-500'
-                        }`}
-                      >
-                        {group.group.name}
-                      </button>
-                    ))}
+                    {(() => {
+                      const tabs: { key: string; label: string }[] = [];
+                      formGroups.forEach((group, index) => {
+                        // Insert "Group Members" tab before the last form group
+                        if (isGroupRegistration && index === groupMembersStepIndex) {
+                          tabs.push({ key: 'group-members', label: 'Group Members' });
+                        }
+                        tabs.push({ key: `group-${index}`, label: group.group.name });
+                      });
+                      return tabs.map((tab, index) => (
+                        <button
+                          key={tab.key}
+                          onClick={() => {
+                            if (index < currentStep) setCurrentStep(index);
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                            index === currentStep
+                              ? 'bg-primary-500 text-white'
+                              : index < currentStep
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'bg-gray-200 text-gray-500'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ));
+                    })()}
                   </div>
                 </div>
               )}
@@ -947,12 +1072,122 @@ export default function RegisterConferencePage() {
                   </div>
                 )}
 
-                {formGroups[currentStep] && (
+                {/* Group Members Step */}
+                {isOnGroupMembersStep ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        Group Members
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        {guests.length} guest{guests.length !== 1 ? 's' : ''} added
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Add the details of the guests you would like to invite to register as part of your group.
+                    </p>
+
+                    {guests.map((guest, index) => (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-lg p-4 relative"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-medium text-gray-700">
+                            Guest {index + 1}
+                          </span>
+                          {guests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeGuest(index)}
+                              className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              First Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={guest.firstName}
+                              onChange={(e) => updateGuest(index, 'firstName', e.target.value)}
+                              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                guestErrors[index]?.firstName
+                                  ? 'border-red-500 focus:ring-red-500'
+                                  : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                              }`}
+                              placeholder="First name"
+                            />
+                            {guestErrors[index]?.firstName && (
+                              <p className="mt-1 text-sm text-red-600">{guestErrors[index].firstName}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Last Name <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={guest.lastName}
+                              onChange={(e) => updateGuest(index, 'lastName', e.target.value)}
+                              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                guestErrors[index]?.lastName
+                                  ? 'border-red-500 focus:ring-red-500'
+                                  : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                              }`}
+                              placeholder="Last name"
+                            />
+                            {guestErrors[index]?.lastName && (
+                              <p className="mt-1 text-sm text-red-600">{guestErrors[index].lastName}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Email <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="email"
+                              value={guest.email}
+                              onChange={(e) => updateGuest(index, 'email', e.target.value)}
+                              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                guestErrors[index]?.email
+                                  ? 'border-red-500 focus:ring-red-500'
+                                  : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                              }`}
+                              placeholder="email@example.com"
+                            />
+                            {guestErrors[index]?.email && (
+                              <p className="mt-1 text-sm text-red-600">{guestErrors[index].email}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={addGuest}
+                      className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium text-sm"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Add Another Guest
+                    </button>
+                  </div>
+                ) : formGroups[actualFormGroupIndex] ? (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                      {formGroups[currentStep].group.name}
+                      {formGroups[actualFormGroupIndex].group.name}
                     </h3>
-                    {formGroups[currentStep].inputs.map(
+                    {formGroups[actualFormGroupIndex].inputs.map(
                       ({ input, options, value }) => (
                         <div key={input.inputcode}>
                           {input.inputtype.id !== 17 && (
@@ -971,7 +1206,7 @@ export default function RegisterConferencePage() {
                       ),
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Payment Processing Indicator */}
                 {processingPayment && (
@@ -991,7 +1226,7 @@ export default function RegisterConferencePage() {
                 )}
 
                 {/* Payment Required Notice */}
-                {paymentRequired && selectedCategory && currentStep === formGroups.length - 1 && !processingPayment && (
+                {paymentRequired && selectedCategory && currentStep === totalSteps - 1 && !processingPayment && (
                   <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <svg
@@ -1011,6 +1246,9 @@ export default function RegisterConferencePage() {
                         </p>
                         <p className="text-sm text-amber-700">
                           Registration fee: <span className="font-semibold">{selectedCategory.fee}</span>
+                          {isGroupRegistration && (
+                            <span> x {totalParticipants} participants = <span className="font-semibold">{extractCurrency(selectedCategory.fee)} {getPaymentAmount(selectedCategory.fee).toLocaleString()}</span></span>
+                          )}
                         </p>
                         <p className="text-xs text-amber-600 mt-1">
                           You will be redirected to a secure payment page after clicking Submit.
@@ -1044,7 +1282,7 @@ export default function RegisterConferencePage() {
                     )}
                   </div>
                   <div>
-                    {currentStep < formGroups.length - 1 ? (
+                    {currentStep < totalSteps - 1 ? (
                       <button
                         type="button"
                         onClick={nextStep}
@@ -1100,11 +1338,68 @@ export default function RegisterConferencePage() {
       </div>
       <Footer />
 
+      {/* Registration Type Modal */}
+      {showRegistrationTypeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-2 text-center">
+              How would you like to register?
+            </h2>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Choose your registration type to continue
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Single Registration */}
+              <button
+                onClick={() => handleRegistrationTypeSelect('single')}
+                className="p-5 border-2 border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-center group"
+              >
+                <div className="w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-primary-200 transition-colors">
+                  <svg className="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold mb-1">Single</h3>
+                <p className="text-xs text-gray-500">
+                  Register yourself only
+                </p>
+              </button>
+
+              {/* Group Registration */}
+              <button
+                onClick={() => handleRegistrationTypeSelect('group')}
+                className="p-5 border-2 border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-center group"
+              >
+                <div className="w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-primary-200 transition-colors">
+                  <svg className="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold mb-1">Group</h3>
+                <p className="text-xs text-gray-500">
+                  Register with guests
+                </p>
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowRegistrationTypeModal(false);
+                setPendingCategory(null);
+              }}
+              className="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mastercard Payment Modal */}
       {paymentSession && (
         <PaymentModal
           session={paymentSession}
-          amount={parseFeeAmount(selectedCategory?.fee || '0')}
+          amount={getPaymentAmount(selectedCategory?.fee || '0')}
           currency={extractCurrency(selectedCategory?.fee || 'USD')}
           categoryName={selectedCategory?.name_english || ''}
           customerEmail={(formValues['input_id_52307'] as string) || ''}
