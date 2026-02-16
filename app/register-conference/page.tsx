@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -32,6 +33,7 @@ interface Guest {
   firstName: string;
   lastName: string;
   email: string;
+  categoryId: number;
 }
 
 export default function RegisterConferencePage() {
@@ -66,8 +68,21 @@ export default function RegisterConferencePage() {
   const [showRegistrationTypeModal, setShowRegistrationTypeModal] = useState(false);
   const [registrationType, setRegistrationType] = useState<RegistrationType>('single');
   const [pendingCategory, setPendingCategory] = useState<RegistrationCategory | null>(null);
-  const [guests, setGuests] = useState<Guest[]>([{ firstName: '', lastName: '', email: '' }]);
-  const [guestErrors, setGuestErrors] = useState<Record<number, Record<string, string>>>({})
+  const [guests, setGuests] = useState<Guest[]>([{ firstName: '', lastName: '', email: '', categoryId: 0 }]);
+  const [guestErrors, setGuestErrors] = useState<Record<number, Record<string, string>>>({});
+
+  // Excel upload state
+  const [inputMethod, setInputMethod] = useState<'manual' | 'excel'>('manual');
+  const [excelRawData, setExcelRawData] = useState<Record<string, string>[]>([]);
+  const [excelFileColumns, setExcelFileColumns] = useState<string[]>([]);
+  const [excelColumnMapping, setExcelColumnMapping] = useState({
+    email: '',
+    firstName: '',
+    lastName: ''
+  });
+  const [excelMappingConfirmed, setExcelMappingConfirmed] = useState(false);
+  const [excelFileName, setExcelFileName] = useState('');
+  const [excelError, setExcelError] = useState('');
 
   useEffect(() => {
     loadRegistrationPage();
@@ -149,7 +164,7 @@ export default function RegisterConferencePage() {
     setRegistrationType(type);
     setShowRegistrationTypeModal(false);
     if (type === 'group') {
-      setGuests([{ firstName: '', lastName: '', email: '' }]);
+      setGuests([{ firstName: '', lastName: '', email: '', categoryId: pendingCategory?.id || 0 }]);
     }
     if (pendingCategory) {
       await selectCategory(pendingCategory);
@@ -157,7 +172,7 @@ export default function RegisterConferencePage() {
   };
 
   const addGuest = () => {
-    setGuests((prev) => [...prev, { firstName: '', lastName: '', email: '' }]);
+    setGuests((prev) => [...prev, { firstName: '', lastName: '', email: '', categoryId: selectedCategory?.id || 0 }]);
   };
 
   const removeGuest = (index: number) => {
@@ -169,7 +184,7 @@ export default function RegisterConferencePage() {
     });
   };
 
-  const updateGuest = (index: number, field: keyof Guest, value: string) => {
+  const updateGuest = (index: number, field: keyof Guest, value: string | number) => {
     setGuests((prev) =>
       prev.map((guest, i) => (i === index ? { ...guest, [field]: value } : guest)),
     );
@@ -199,11 +214,158 @@ export default function RegisterConferencePage() {
       } else if (!emailRegex.test(guest.email)) {
         guestErrs.email = 'Invalid email address';
       }
+      if (!guest.categoryId || guest.categoryId === 0) {
+        guestErrs.categoryId = 'Category is required';
+      }
       if (Object.keys(guestErrs).length > 0) errors[index] = guestErrs;
     });
 
     setGuestErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  // Excel upload helper functions
+  const guessColumnMapping = (columns: string[]): { email: string; firstName: string; lastName: string } => {
+    const mapping = { email: '', firstName: '', lastName: '' };
+
+    const normalizeForMatching = (str: string): string => {
+      return str.toLowerCase().trim().replace(/[\s_-]+/g, '');
+    };
+
+    const emailPatterns = ['email', 'emailaddress', 'mail', 'e-mail', 'courriel'];
+    const firstNamePatterns = ['firstname', 'first', 'givenname', 'prenom', 'prénom', 'fname'];
+    const lastNamePatterns = ['lastname', 'last', 'surname', 'familyname', 'nom', 'lname'];
+
+    columns.forEach((col) => {
+      const normalized = normalizeForMatching(col);
+
+      if (!mapping.email && emailPatterns.some((p) => normalized.includes(p))) {
+        mapping.email = col;
+      }
+      if (!mapping.firstName && firstNamePatterns.some((p) => normalized.includes(p))) {
+        mapping.firstName = col;
+      }
+      if (!mapping.lastName && lastNamePatterns.some((p) => normalized.includes(p))) {
+        mapping.lastName = col;
+      }
+    });
+
+    return mapping;
+  };
+
+  const handleExcelFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setExcelError('');
+    setExcelRawData([]);
+    setExcelMappingConfirmed(false);
+    setExcelFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, { defval: '' });
+
+        if (jsonData.length === 0) {
+          setExcelError('The file appears to be empty');
+          setExcelRawData([]);
+          setExcelFileColumns([]);
+          return;
+        }
+
+        const columns = Object.keys(jsonData[0]);
+        setExcelFileColumns(columns);
+        setExcelRawData(jsonData);
+
+        const guessedMapping = guessColumnMapping(columns);
+        setExcelColumnMapping(guessedMapping);
+      } catch (err) {
+        setExcelError('Failed to parse the file. Please ensure it is a valid CSV or Excel file.');
+        setExcelRawData([]);
+        setExcelFileColumns([]);
+      }
+    };
+
+    reader.onerror = () => {
+      setExcelError('Failed to read the file');
+      setExcelRawData([]);
+      setExcelFileColumns([]);
+    };
+
+    reader.readAsBinaryString(file);
+  };
+
+  const handleExcelMappingChange = (field: 'email' | 'firstName' | 'lastName', value: string) => {
+    setExcelColumnMapping((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const isExcelMappingComplete = (): boolean => {
+    return !!(excelColumnMapping.email && excelColumnMapping.firstName && excelColumnMapping.lastName);
+  };
+
+  const getUnmappedExcelColumns = (currentField: 'email' | 'firstName' | 'lastName'): string[] => {
+    const usedColumns = Object.entries(excelColumnMapping)
+      .filter(([key, value]) => key !== currentField && value)
+      .map(([_, value]) => value);
+
+    return excelFileColumns.filter((col) => !usedColumns.includes(col));
+  };
+
+  const confirmExcelMapping = () => {
+    if (!isExcelMappingComplete()) {
+      setExcelError('Please map all required fields');
+      return;
+    }
+
+    setExcelError('');
+
+    const mapped: Guest[] = excelRawData.map((row) => ({
+      email: String(row[excelColumnMapping.email] || '').trim(),
+      firstName: String(row[excelColumnMapping.firstName] || '').trim(),
+      lastName: String(row[excelColumnMapping.lastName] || '').trim(),
+      categoryId: selectedCategory?.id || 0,
+    }));
+
+    const validRows = mapped.filter(
+      (row) => row.email && row.firstName && row.lastName
+    );
+
+    if (validRows.length === 0) {
+      setExcelError('No valid rows found after applying the column mapping.');
+      return;
+    }
+
+    if (validRows.length < mapped.length) {
+      setExcelError(
+        `${mapped.length - validRows.length} row(s) were skipped due to missing required fields.`
+      );
+    }
+
+    setGuests(validRows);
+    setExcelMappingConfirmed(true);
+  };
+
+  const resetExcelUpload = () => {
+    setExcelRawData([]);
+    setExcelFileColumns([]);
+    setExcelColumnMapping({ email: '', firstName: '', lastName: '' });
+    setExcelMappingConfirmed(false);
+    setExcelFileName('');
+    setExcelError('');
+  };
+
+  const switchInputMethod = (method: 'manual' | 'excel') => {
+    setInputMethod(method);
+
+    // Clear Excel state when switching to manual
+    if (method === 'manual') {
+      resetExcelUpload();
+    }
   };
 
   // Determine the total steps: for group registration, insert a "Group Members" step before the last form step
@@ -219,9 +381,26 @@ export default function RegisterConferencePage() {
     ? currentStep - 1
     : currentStep;
 
-  // For group registration, multiply the fee by total number of participants (registrant + guests)
+  // For group registration, sum individual category fees for all participants
   const totalParticipants = isGroupRegistration ? 1 + guests.length : 1;
-  const getPaymentAmount = (fee: string) => parseFeeAmount(fee) * totalParticipants;
+  const getPaymentAmount = (fee: string) => {
+    if (!isGroupRegistration) {
+      return parseFeeAmount(fee);
+    }
+
+    // Start with main registrant's fee
+    let total = parseFeeAmount(fee);
+
+    // Add each guest's category fee
+    guests.forEach((guest) => {
+      const guestCategory = categories.find((cat) => cat.id === guest.categoryId);
+      if (guestCategory) {
+        total += parseFeeAmount(guestCategory.fee);
+      }
+    });
+
+    return total;
+  };
 
   const handleInputChange = (inputCode: string, value: string | string[]) => {
     setFormValues((prev) => ({
@@ -339,7 +518,17 @@ export default function RegisterConferencePage() {
       // Process payment if required
       let paymentResult: PaymentResult | null = null;
 
-      if (paymentRequired && selectedCategory) {
+      // Check if payment method is Bank Transfer
+      const paymentMethod = Object.values(formValues).find((value) =>
+        typeof value === 'string' &&
+        (value.toLowerCase().includes('bank transfer') ||
+         value.toLowerCase().includes('bank-transfer') ||
+         value.toLowerCase().includes('banktransfer'))
+      );
+
+      const isBankTransfer = !!paymentMethod;
+
+      if (paymentRequired && selectedCategory && !isBankTransfer) {
         setProcessingPayment(true);
 
         // Get customer info from form
@@ -454,16 +643,9 @@ export default function RegisterConferencePage() {
       formData.append('user_language', 'english');
       formData.append('accompanied', isGroupRegistration ? 'YES' : 'NO');
 
-      // Add group members data if group registration
+      // Add registration type
       if (isGroupRegistration && guests.length > 0) {
         formData.append('registration_type', 'group');
-        formData.append('group_members', JSON.stringify(
-          guests.map((guest) => ({
-            first_name: guest.firstName,
-            last_name: guest.lastName,
-            email: guest.email,
-          }))
-        ));
       } else {
         formData.append('registration_type', 'single');
       }
@@ -481,9 +663,70 @@ export default function RegisterConferencePage() {
         formData.append('acknowleadgment', '');
       }
 
+      // Submit main registration
       const response = await registrationApi.submitRegistration(formData);
 
       if (response.message) {
+        // If group registration with guests, invite them via bulk endpoint
+        if (isGroupRegistration && guests.length > 0) {
+          try {
+            // Group guests by categoryId
+            const guestsByCategory = guests.reduce((acc, guest) => {
+              if (!acc[guest.categoryId]) {
+                acc[guest.categoryId] = [];
+              }
+              acc[guest.categoryId].push(guest);
+              return acc;
+            }, {} as Record<number, Guest[]>);
+
+            // Send bulk invite for each category
+            for (const [categoryId, categoryGuests] of Object.entries(guestsByCategory)) {
+              const category = categories.find((cat) => cat.id === parseInt(categoryId));
+              if (!category) continue;
+
+              // Format guests data for this category
+              const guestsInputs = categoryGuests.map((guest, index) => {
+                // Generate unique badgeId for this guest (same for all their fields)
+                const badgeId = `${Date.now()}${parseInt(categoryId)}${index}${Math.random().toString().substring(2, 8)}`;
+
+                return [
+                  {
+                    inputName: 'First Name',
+                    inputId: 'input_id_21576',
+                    inputVal: guest.firstName,
+                    badgeId,
+                  },
+                  {
+                    inputName: 'Last Name',
+                    inputId: 'input_id_35129',
+                    inputVal: guest.lastName,
+                    badgeId,
+                  },
+                  {
+                    inputName: 'Email',
+                    inputId: 'input_id_52307',
+                    inputVal: guest.email,
+                    badgeId,
+                  },
+                ];
+              });
+
+              const bulkFormData = new FormData();
+              bulkFormData.append('inputs', JSON.stringify(guestsInputs));
+              bulkFormData.append('category', categoryId);
+              bulkFormData.append('attendence_type', attendanceType || 'PHYSICAL');
+              bulkFormData.append('accompanied', 'NO');
+              bulkFormData.append('free_ticket', requiresPayment(category.fee) ? 'NO' : 'YES');
+              bulkFormData.append('language_ticket', 'english');
+
+              await registrationApi.inviteBulkDelegates(bulkFormData);
+            }
+          } catch (bulkErr) {
+            console.error('Failed to invite guests:', bulkErr);
+            // Don't fail the whole registration if bulk invite fails
+          }
+        }
+
         setSubmitted(true);
       }
     } catch (err) {
@@ -1075,6 +1318,7 @@ export default function RegisterConferencePage() {
                 {/* Group Members Step */}
                 {isOnGroupMembersStep ? (
                   <div className="space-y-6">
+                    {/* Header */}
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-gray-800">
                         Group Members
@@ -1083,104 +1327,503 @@ export default function RegisterConferencePage() {
                         {guests.length} guest{guests.length !== 1 ? 's' : ''} added
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Add the details of the guests you would like to invite to register as part of your group.
-                    </p>
 
-                    {guests.map((guest, index) => (
-                      <div
-                        key={index}
-                        className="border border-gray-200 rounded-lg p-4 relative"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-medium text-gray-700">
-                            Guest {index + 1}
-                          </span>
-                          {guests.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeGuest(index)}
-                              className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              First Name <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              value={guest.firstName}
-                              onChange={(e) => updateGuest(index, 'firstName', e.target.value)}
-                              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
-                                guestErrors[index]?.firstName
-                                  ? 'border-red-500 focus:ring-red-500'
-                                  : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
-                              }`}
-                              placeholder="First name"
-                            />
-                            {guestErrors[index]?.firstName && (
-                              <p className="mt-1 text-sm text-red-600">{guestErrors[index].firstName}</p>
+                    {/* Tab Navigation */}
+                    <div className="border-b border-gray-200">
+                      <nav className="flex gap-2" aria-label="Input method">
+                        <button
+                          type="button"
+                          onClick={() => switchInputMethod('manual')}
+                          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            inputMethod === 'manual'
+                              ? 'border-primary-600 text-primary-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          Manual Entry
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => switchInputMethod('excel')}
+                          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            inputMethod === 'excel'
+                              ? 'border-primary-600 text-primary-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          Excel Upload
+                        </button>
+                      </nav>
+                    </div>
+
+                    {/* Manual Entry Content */}
+                    {inputMethod === 'manual' && (
+                      <>
+                        <p className="text-sm text-gray-600">
+                          Add the details of the guests you would like to invite to register as part of your group.
+                        </p>
+
+                        {guests.map((guest, index) => (
+                          <div
+                            key={index}
+                            className="border border-gray-200 rounded-lg p-4 relative"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-sm font-medium text-gray-700">
+                                Guest {index + 1}
+                              </span>
+                              {guests.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeGuest(index)}
+                                  className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <div className="space-y-4">
+                              <div className="grid md:grid-cols-3 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    First Name <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={guest.firstName}
+                                    onChange={(e) => updateGuest(index, 'firstName', e.target.value)}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                      guestErrors[index]?.firstName
+                                        ? 'border-red-500 focus:ring-red-500'
+                                        : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                                    }`}
+                                    placeholder="First name"
+                                  />
+                                  {guestErrors[index]?.firstName && (
+                                    <p className="mt-1 text-sm text-red-600">{guestErrors[index].firstName}</p>
+                                  )}
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Last Name <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={guest.lastName}
+                                    onChange={(e) => updateGuest(index, 'lastName', e.target.value)}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                      guestErrors[index]?.lastName
+                                        ? 'border-red-500 focus:ring-red-500'
+                                        : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                                    }`}
+                                    placeholder="Last name"
+                                  />
+                                  {guestErrors[index]?.lastName && (
+                                    <p className="mt-1 text-sm text-red-600">{guestErrors[index].lastName}</p>
+                                  )}
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Email <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={guest.email}
+                                    onChange={(e) => updateGuest(index, 'email', e.target.value)}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                      guestErrors[index]?.email
+                                        ? 'border-red-500 focus:ring-red-500'
+                                        : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                                    }`}
+                                    placeholder="email@example.com"
+                                  />
+                                  {guestErrors[index]?.email && (
+                                    <p className="mt-1 text-sm text-red-600">{guestErrors[index].email}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Registration Category <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                  value={guest.categoryId}
+                                  onChange={(e) => updateGuest(index, 'categoryId', parseInt(e.target.value))}
+                                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
+                                    guestErrors[index]?.categoryId
+                                      ? 'border-red-500 focus:ring-red-500'
+                                      : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
+                                  }`}
+                                >
+                                  <option value="0">-- Select Category --</option>
+                                  {categories.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                      {cat.name_english} ({cat.fee})
+                                    </option>
+                                  ))}
+                                </select>
+                                {guestErrors[index]?.categoryId && (
+                                  <p className="mt-1 text-sm text-red-600">{guestErrors[index].categoryId}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={addGuest}
+                          className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium text-sm"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Another Guest
+                        </button>
+                      </>
+                    )}
+
+                    {/* Excel Upload Content */}
+                    {inputMethod === 'excel' && (
+                      <div className="space-y-6">
+                        {/* FileUploadSection */}
+                        {!excelRawData.length && (
+                          <div className="space-y-4">
+                            {/* Info Card */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <h4 className="text-sm font-medium text-blue-900 mb-2">
+                                Excel Upload Requirements
+                              </h4>
+                              <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                                <li>File must be in CSV, XLSX, or XLS format</li>
+                                <li>Should contain columns for Email, First Name, and Last Name</li>
+                                <li>First row should contain column headers</li>
+                              </ul>
+                            </div>
+
+                            {/* Upload Zone */}
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-primary-400 transition-colors">
+                              <input
+                                type="file"
+                                accept=".csv,.xlsx,.xls"
+                                onChange={handleExcelFileUpload}
+                                className="hidden"
+                                id="excel-file-input"
+                              />
+                              <label
+                                htmlFor="excel-file-input"
+                                className="cursor-pointer flex flex-col items-center"
+                              >
+                                <svg
+                                  className="w-12 h-12 text-gray-400 mb-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                  />
+                                </svg>
+                                <span className="text-sm font-medium text-gray-700 mb-1">
+                                  Click to upload or drag and drop
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  CSV, XLSX, or XLS files only
+                                </span>
+                              </label>
+                            </div>
+
+                            {/* Error Display */}
+                            {excelError && (
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <p className="text-sm text-red-800">{excelError}</p>
+                              </div>
                             )}
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Last Name <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              value={guest.lastName}
-                              onChange={(e) => updateGuest(index, 'lastName', e.target.value)}
-                              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
-                                guestErrors[index]?.lastName
-                                  ? 'border-red-500 focus:ring-red-500'
-                                  : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
-                              }`}
-                              placeholder="Last name"
-                            />
-                            {guestErrors[index]?.lastName && (
-                              <p className="mt-1 text-sm text-red-600">{guestErrors[index].lastName}</p>
+                        )}
+
+                        {/* ColumnMappingSection */}
+                        {excelRawData.length > 0 && !excelMappingConfirmed && (
+                          <div className="space-y-6">
+                            {/* File Info Header */}
+                            <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {excelFileName}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {excelRawData.length} row{excelRawData.length !== 1 ? 's' : ''} found
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={resetExcelUpload}
+                                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                              >
+                                Change File
+                              </button>
+                            </div>
+
+                            {/* Column Mapping */}
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-4">
+                                Map your columns to the required fields
+                              </h4>
+                              <div className="grid md:grid-cols-3 gap-4">
+                                {/* Email Mapping */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Email Column <span className="text-red-500">*</span>
+                                  </label>
+                                  <select
+                                    value={excelColumnMapping.email}
+                                    onChange={(e) => handleExcelMappingChange('email', e.target.value)}
+                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
+                                      excelColumnMapping.email
+                                        ? 'border-green-300 bg-green-50'
+                                        : 'border-gray-300'
+                                    }`}
+                                  >
+                                    <option value="">-- Select Column --</option>
+                                    {getUnmappedExcelColumns('email').map((col) => (
+                                      <option key={col} value={col}>
+                                        {col}
+                                      </option>
+                                    ))}
+                                    {excelColumnMapping.email && (
+                                      <option value={excelColumnMapping.email}>
+                                        {excelColumnMapping.email}
+                                      </option>
+                                    )}
+                                  </select>
+                                </div>
+
+                                {/* First Name Mapping */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    First Name Column <span className="text-red-500">*</span>
+                                  </label>
+                                  <select
+                                    value={excelColumnMapping.firstName}
+                                    onChange={(e) => handleExcelMappingChange('firstName', e.target.value)}
+                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
+                                      excelColumnMapping.firstName
+                                        ? 'border-green-300 bg-green-50'
+                                        : 'border-gray-300'
+                                    }`}
+                                  >
+                                    <option value="">-- Select Column --</option>
+                                    {getUnmappedExcelColumns('firstName').map((col) => (
+                                      <option key={col} value={col}>
+                                        {col}
+                                      </option>
+                                    ))}
+                                    {excelColumnMapping.firstName && (
+                                      <option value={excelColumnMapping.firstName}>
+                                        {excelColumnMapping.firstName}
+                                      </option>
+                                    )}
+                                  </select>
+                                </div>
+
+                                {/* Last Name Mapping */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Last Name Column <span className="text-red-500">*</span>
+                                  </label>
+                                  <select
+                                    value={excelColumnMapping.lastName}
+                                    onChange={(e) => handleExcelMappingChange('lastName', e.target.value)}
+                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
+                                      excelColumnMapping.lastName
+                                        ? 'border-green-300 bg-green-50'
+                                        : 'border-gray-300'
+                                    }`}
+                                  >
+                                    <option value="">-- Select Column --</option>
+                                    {getUnmappedExcelColumns('lastName').map((col) => (
+                                      <option key={col} value={col}>
+                                        {col}
+                                      </option>
+                                    ))}
+                                    {excelColumnMapping.lastName && (
+                                      <option value={excelColumnMapping.lastName}>
+                                        {excelColumnMapping.lastName}
+                                      </option>
+                                    )}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Preview Table */}
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                                Preview (first 3 rows)
+                              </h4>
+                              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Email
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        First Name
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Last Name
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {excelRawData.slice(0, 3).map((row, index) => (
+                                      <tr key={index} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                          {excelColumnMapping.email ? String(row[excelColumnMapping.email] || '-') : '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                          {excelColumnMapping.firstName ? String(row[excelColumnMapping.firstName] || '-') : '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                          {excelColumnMapping.lastName ? String(row[excelColumnMapping.lastName] || '-') : '-'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+
+                            {/* Error Display */}
+                            {excelError && (
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <p className="text-sm text-red-800">{excelError}</p>
+                              </div>
                             )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                onClick={confirmExcelMapping}
+                                disabled={!isExcelMappingComplete()}
+                                className={`px-6 py-2 rounded-lg font-medium text-sm transition-colors ${
+                                  isExcelMappingComplete()
+                                    ? 'bg-primary-600 text-white hover:bg-primary-700'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
+                              >
+                                Continue
+                              </button>
+                              <button
+                                type="button"
+                                onClick={resetExcelUpload}
+                                className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Email <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="email"
-                              value={guest.email}
-                              onChange={(e) => updateGuest(index, 'email', e.target.value)}
-                              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 ${
-                                guestErrors[index]?.email
-                                  ? 'border-red-500 focus:ring-red-500'
-                                  : 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
-                              }`}
-                              placeholder="email@example.com"
-                            />
-                            {guestErrors[index]?.email && (
-                              <p className="mt-1 text-sm text-red-600">{guestErrors[index].email}</p>
+                        )}
+
+                        {/* ReviewDataSection */}
+                        {excelMappingConfirmed && (
+                          <div className="space-y-6">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-900">
+                                  Review Imported Guests
+                                </h4>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {guests.length} guest{guests.length !== 1 ? 's' : ''} imported successfully
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setExcelMappingConfirmed(false)}
+                                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                              >
+                                ← Back to Mapping
+                              </button>
+                            </div>
+
+                            {/* Success Message */}
+                            {excelError && (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p className="text-sm text-yellow-800">{excelError}</p>
+                              </div>
                             )}
+
+                            {/* Guests Table */}
+                            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                      #
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Email
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                      First Name
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Last Name
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Actions
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {guests.map((guest, index) => (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                      <td className="px-4 py-3 text-sm text-gray-500">
+                                        {index + 1}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {guest.email}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {guest.firstName}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {guest.lastName}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeGuest(index)}
+                                          className="text-red-600 hover:text-red-800 font-medium"
+                                        >
+                                          Remove
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Info Message */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <p className="text-sm text-blue-800">
+                                ℹ️ You can remove individual guests from the table above. Click "Next" below to proceed with the registration.
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      onClick={addGuest}
-                      className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Add Another Guest
-                    </button>
+                    )}
                   </div>
                 ) : formGroups[actualFormGroupIndex] ? (
                   <div className="space-y-6">
@@ -1245,9 +1888,14 @@ export default function RegisterConferencePage() {
                           Payment Required
                         </p>
                         <p className="text-sm text-amber-700">
-                          Registration fee: <span className="font-semibold">{selectedCategory.fee}</span>
-                          {isGroupRegistration && (
-                            <span> x {totalParticipants} participants = <span className="font-semibold">{extractCurrency(selectedCategory.fee)} {getPaymentAmount(selectedCategory.fee).toLocaleString()}</span></span>
+                          {isGroupRegistration ? (
+                            <>
+                              Total registration fee for {totalParticipants} participants: <span className="font-semibold">{extractCurrency(selectedCategory.fee)} {getPaymentAmount(selectedCategory.fee).toLocaleString()}</span>
+                            </>
+                          ) : (
+                            <>
+                              Registration fee: <span className="font-semibold">{selectedCategory.fee}</span>
+                            </>
                           )}
                         </p>
                         <p className="text-xs text-amber-600 mt-1">
