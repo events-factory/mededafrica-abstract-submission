@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const SMARTEVENT_API_URL = 'https://app.smartevent.rw/Api';
 const EVENT_CODE = '4Ultr03SBsJeccc/l48oeTh6K1diS3UybkJmald2VUl3QzJSZVE9PQ==';
+const BULK_INVITE_EVENT_CODE = '69848109c25ca';
 
 export async function GET(
   request: NextRequest,
@@ -33,6 +34,7 @@ async function proxyRequest(
       'Display-Registration-Categories',
       'Display-Categories-Form-Inputs',
       'Register-Delegate',
+      'Invite-Bulk-Delegates',
     ].some((endpoint) => path.includes(endpoint));
 
     const headers: Record<string, string> = {};
@@ -49,21 +51,36 @@ async function proxyRequest(
     let body: FormData | string | URLSearchParams | undefined;
     if (method !== 'GET') {
       if (isRegistrationEndpoint) {
-        // For registration endpoints, preserve FormData format and add event_code
+        // For registration endpoints, preserve FormData format and add event_code/eventcode
         try {
           const clonedRequest = request.clone();
           const incomingFormData = await clonedRequest.formData();
 
-          // Create a new FormData with event_code added
+          // Determine which event code field name to use
+          const eventCodeField = path.includes('Invite-Bulk-Delegates') ? 'eventcode' : 'event_code';
+          const eventCodeValue = path.includes('Invite-Bulk-Delegates') ? BULK_INVITE_EVENT_CODE : EVENT_CODE;
+
+          // Create a new FormData with event code added
           const newFormData = new FormData();
-          newFormData.append('event_code', EVENT_CODE);
+          newFormData.append(eventCodeField, eventCodeValue);
+
+          // Debug logging
+          console.log(`[Proxy] Endpoint: ${path}`);
+          console.log(`[Proxy] Event code field: ${eventCodeField}`);
+          console.log(`[Proxy] Event code: ${EVENT_CODE.substring(0, 20)}...`);
 
           // Add all existing form fields
           incomingFormData.forEach((value, key) => {
-            if (key !== 'event_code') {
+            if (key !== 'event_code' && key !== 'eventcode') {
               newFormData.append(key, value);
             }
           });
+
+          // Log all FormData fields
+          console.log('[Proxy] FormData fields:');
+          for (const [key, value] of newFormData.entries()) {
+            console.log(`  ${key}: ${typeof value === 'string' ? value.substring(0, 50) : '[File]'}${typeof value === 'string' && value.length > 50 ? '...' : ''}`);
+          }
 
           body = newFormData;
           // Don't set Content-Type header - let fetch handle it for FormData
@@ -71,12 +88,14 @@ async function proxyRequest(
         } catch {
           // Fallback: try URLSearchParams for non-FormData payloads
           try {
+            const eventCodeField = path.includes('Invite-Bulk-Delegates') ? 'eventcode' : 'event_code';
+            const eventCodeValue = path.includes('Invite-Bulk-Delegates') ? BULK_INVITE_EVENT_CODE : EVENT_CODE;
             const formParams = new URLSearchParams();
-            formParams.append('event_code', EVENT_CODE);
+            formParams.append(eventCodeField, eventCodeValue);
 
             const jsonBody = await request.json();
             Object.entries(jsonBody).forEach(([key, value]) => {
-              if (key !== 'event_code') {
+              if (key !== 'event_code' && key !== 'eventcode') {
                 formParams.append(key, String(value));
               }
             });
