@@ -585,4 +585,21 @@ export const registrationApi = {
       data: result.data,
     };
   },
+
+  inviteBulkDelegates: async (data: FormData): Promise<{
+    success: boolean;
+    message: string | string[];
+    data?: Record<string, unknown>;
+  }> => {
+    const response = await fetch(`${SMARTEVENT_API_URL}/Invite-Bulk-Delegates`, {
+      method: 'POST',
+      body: data,
+    });
+    const result = await response.json();
+    return {
+      success: response.ok,
+      message: result.message,
+      data: result.data,
+    };
+  },
 };

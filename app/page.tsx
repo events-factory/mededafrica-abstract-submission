@@ -89,7 +89,7 @@ export default function Home() {
                 Register for the Conference
               </Link>
               <p className="text-sm text-gray-500 text-center">
-                06-08 July 2025 | Addis Ababa, Ethiopia
+                06-08 July 2026 | Addis Ababa, Ethiopia
               </p>
             </div>
           </div>
