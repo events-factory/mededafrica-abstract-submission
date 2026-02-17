@@ -34,6 +34,7 @@ interface Guest {
   lastName: string;
   email: string;
   categoryId: number;
+  badgeId?: string; // Store pre-generated badge ID
 }
 
 export default function RegisterConferencePage() {
@@ -646,6 +647,20 @@ export default function RegisterConferencePage() {
       // Add registration type
       if (isGroupRegistration && guests.length > 0) {
         formData.append('registration_type', 'group');
+
+        // Generate badge IDs for all guests and collect them into group_ids array
+        const groupIds: string[] = [];
+        const guestsWithBadgeIds = guests.map((guest, index) => {
+          const badgeId = `${Date.now()}${guest.categoryId}${index}${Math.random().toString().substring(2, 8)}`;
+          groupIds.push(badgeId);
+          return { ...guest, badgeId };
+        });
+
+        // Store guests with their badge IDs for later use in bulk invite
+        setGuests(guestsWithBadgeIds);
+
+        // Add group_ids array to the main registration
+        formData.append('group_ids', JSON.stringify(groupIds));
       } else {
         formData.append('registration_type', 'single');
       }
@@ -685,9 +700,9 @@ export default function RegisterConferencePage() {
               if (!category) continue;
 
               // Format guests data for this category
-              const guestsInputs = categoryGuests.map((guest, index) => {
-                // Generate unique badgeId for this guest (same for all their fields)
-                const badgeId = `${Date.now()}${parseInt(categoryId)}${index}${Math.random().toString().substring(2, 8)}`;
+              const guestsInputs = categoryGuests.map((guest) => {
+                // Use pre-generated badgeId from guest object
+                const badgeId = guest.badgeId || `${Date.now()}${parseInt(categoryId)}${Math.random().toString().substring(2, 8)}`;
 
                 return [
                   {
