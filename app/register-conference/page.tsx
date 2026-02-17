@@ -9,6 +9,7 @@ import PaymentModal from '@/components/PaymentModal';
 import SearchableSelect from '@/components/SearchableSelect';
 import {
   registrationApi,
+  authApi,
   RegistrationCategory,
   FormInputGroup,
 } from '@/lib/api';
@@ -708,7 +709,32 @@ export default function RegisterConferencePage() {
       // Submit main registration
       const response = await registrationApi.submitRegistration(formData);
 
-      if (response.message) {
+      if (response.success) {
+        // Create abstract account for the main registrant (not for invited guests)
+        try {
+          const registrationEmail = formData.get('registration_email') as string;
+          const firstName = formData.get('first_name') as string;
+          const lastName = formData.get('last_name') as string;
+
+          if (registrationEmail && firstName && lastName) {
+            // Generate a default password from email and timestamp
+            const defaultPassword = `${registrationEmail.split('@')[0]}${Date.now().toString().slice(-4)}`;
+
+            // Create abstract account
+            await authApi.register({
+              email: registrationEmail,
+              password: defaultPassword,
+              firstName: firstName,
+              lastName: lastName,
+            });
+
+            console.log('Abstract account created for:', registrationEmail);
+          }
+        } catch (accountErr) {
+          console.error('Failed to create abstract account:', accountErr);
+          // Don't fail the whole registration if abstract account creation fails
+        }
+
         // If group registration with guests, invite them via bulk endpoint
         if (isGroupRegistration && guests.length > 0) {
           try {
@@ -770,6 +796,12 @@ export default function RegisterConferencePage() {
         }
 
         setSubmitted(true);
+      } else {
+        // Handle registration failure
+        const errorMessage = Array.isArray(response.message)
+          ? response.message
+          : [response.message];
+        setFormErrors(errorMessage);
       }
     } catch (err) {
       setFormErrors(['Failed to submit registration. Please try again.']);
@@ -1822,6 +1854,9 @@ export default function RegisterConferencePage() {
                                       Last Name
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                      Category
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                       Actions
                                     </th>
                                   </tr>
@@ -1840,6 +1875,29 @@ export default function RegisterConferencePage() {
                                       </td>
                                       <td className="px-4 py-3 text-sm text-gray-900">
                                         {guest.lastName}
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <select
+                                          value={guest.categoryId || ''}
+                                          onChange={(e) => updateGuest(index, 'categoryId', parseInt(e.target.value))}
+                                          className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 ${
+                                            guestErrors[index]?.categoryId
+                                              ? 'border-red-300 focus:ring-red-500'
+                                              : 'border-gray-300 focus:ring-primary-500'
+                                          }`}
+                                        >
+                                          <option value="">Select Category</option>
+                                          {categories.map((cat) => (
+                                            <option key={cat.id} value={cat.id}>
+                                              {cat.name_english} - {cat.fee}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        {guestErrors[index]?.categoryId && (
+                                          <p className="text-xs text-red-600 mt-1">
+                                            {guestErrors[index].categoryId}
+                                          </p>
+                                        )}
                                       </td>
                                       <td className="px-4 py-3 text-sm">
                                         <button
