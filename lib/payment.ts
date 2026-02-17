@@ -14,6 +14,17 @@ declare global {
   }
 }
 
+export interface PaymentGuest {
+  order_id: string;
+  amount: number;
+  currency: string;
+  category_id: number;
+  category_name: string;
+  attendence_type: string;
+  customer_email: string;
+  customer_name: string;
+}
+
 export interface PaymentConfig {
   orderId: string;
   amount: number;
@@ -23,6 +34,7 @@ export interface PaymentConfig {
   attendenceType?: string;
   customerEmail?: string;
   customerName?: string;
+  guests?: PaymentGuest[];
 }
 
 export interface PaymentSession {
@@ -63,6 +75,7 @@ export async function initializePayment(
         customer_email: config.customerEmail,
         customer_name: config.customerName,
         order_id: config.orderId,
+        ...(config.guests && config.guests.length > 0 && { guests: config.guests }),
       }),
     });
 

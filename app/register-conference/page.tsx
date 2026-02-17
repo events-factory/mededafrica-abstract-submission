@@ -20,6 +20,7 @@ import {
   extractCurrency,
   PaymentResult,
   PaymentSession,
+  PaymentGuest,
 } from '@/lib/payment';
 
 type AttendanceType = 'PHYSICAL' | 'VIRTUAL';
@@ -529,6 +530,8 @@ export default function RegisterConferencePage() {
 
       const isBankTransfer = !!paymentMethod;
 
+      console.log('[Payment] paymentRequired:', paymentRequired, '| selectedCategory:', selectedCategory?.name_english, '| isBankTransfer:', isBankTransfer);
+
       if (paymentRequired && selectedCategory && !isBankTransfer) {
         setProcessingPayment(true);
 
@@ -537,6 +540,8 @@ export default function RegisterConferencePage() {
         const firstName = (formValues['input_id_21576'] as string) || '';
         const lastName = (formValues['input_id_35129'] as string) || '';
 
+        console.log('[Payment] Customer info - email:', customerEmail, '| name:', `${firstName} ${lastName}`.trim());
+
         if (!customerEmail) {
           setFormErrors(['Email is required for payment processing']);
           setSubmitting(false);
@@ -544,8 +549,24 @@ export default function RegisterConferencePage() {
           return;
         }
 
-        // Initialize payment
-        const paymentSession = await initializePayment({
+        // Build guests array for group registration
+        const paymentGuests: PaymentGuest[] = registrationType === 'group' && guests.length > 0
+          ? guests.map((guest) => {
+              const guestCategory = categories.find((cat) => cat.id === guest.categoryId);
+              return {
+                order_id: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+                amount: guestCategory ? parseFeeAmount(guestCategory.fee) : 0,
+                currency: guestCategory ? extractCurrency(guestCategory.fee) : extractCurrency(selectedCategory.fee),
+                category_id: guest.categoryId,
+                category_name: guestCategory?.name_english || selectedCategory.name_english,
+                attendence_type: attendanceType || 'PHYSICAL',
+                customer_email: guest.email,
+                customer_name: `${guest.firstName} ${guest.lastName}`.trim(),
+              };
+            })
+          : [];
+
+        const paymentConfig = {
           orderId: paymentData.orderId,
           amount: getPaymentAmount(selectedCategory.fee),
           currency: extractCurrency(selectedCategory.fee),
@@ -554,7 +575,15 @@ export default function RegisterConferencePage() {
           attendenceType: attendanceType || 'PHYSICAL',
           customerEmail,
           customerName: `${firstName} ${lastName}`.trim(),
-        });
+          ...(paymentGuests.length > 0 && { guests: paymentGuests }),
+        };
+
+        console.log('[Payment] Calling initializePayment with config:', paymentConfig);
+
+        // Initialize payment
+        const paymentSession = await initializePayment(paymentConfig);
+
+        console.log('[Payment] initializePayment result:', paymentSession);
 
         if (!paymentSession) {
           setFormErrors(['Failed to initialize payment. Please try again.']);
@@ -568,31 +597,29 @@ export default function RegisterConferencePage() {
         setShowPaymentModal(true);
         setProcessingPayment(false);
 
+        console.log('[Payment] Payment modal opened, calling processPayment...');
+
         // Setup payment callback
-        const paymentPromise = processPayment(paymentSession, {
-          orderId: paymentData.orderId,
-          amount: getPaymentAmount(selectedCategory.fee),
-          currency: extractCurrency(selectedCategory.fee),
-          categoryName: selectedCategory.name_english,
-          categoryId: selectedCategory.id,
-          attendenceType: attendanceType || 'PHYSICAL',
-          customerEmail,
-          customerName: `${firstName} ${lastName}`.trim(),
-        });
+        const paymentPromise = processPayment(paymentSession, paymentConfig);
 
         // Wait for payment result
         paymentResult = await paymentPromise;
+
+        console.log('[Payment] processPayment result:', paymentResult);
 
         // Close modal
         setShowPaymentModal(false);
 
         if (!paymentResult.success) {
+          console.log('[Payment] Payment failed:', paymentResult.error);
           setFormErrors([
             paymentResult.error || 'Payment was not completed. Please try again.',
           ]);
           setSubmitting(false);
           return;
         }
+
+        console.log('[Payment] Payment succeeded, updating payment data');
 
         // Update payment data
         setPaymentData({
