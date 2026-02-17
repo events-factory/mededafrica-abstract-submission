@@ -47,12 +47,12 @@ export default function Home() {
               >
                 Login
               </Link>
-              <Link
+              {/* <Link
                 href="/auth/register"
                 className="block w-full border-2 border-primary-500 text-primary-500 text-center py-3 rounded-lg hover:bg-primary-50 transition-colors font-semibold"
               >
                 Create Account
-              </Link>
+              </Link> */}
             </div>
           </div>
 
