@@ -20,6 +20,7 @@ import {
   extractCurrency,
   PaymentResult,
   PaymentSession,
+  PaymentGuest,
 } from '@/lib/payment';
 
 type AttendanceType = 'PHYSICAL' | 'VIRTUAL';
@@ -34,6 +35,7 @@ interface Guest {
   lastName: string;
   email: string;
   categoryId: number;
+  badgeId?: string; // Store pre-generated badge ID
 }
 
 export default function RegisterConferencePage() {
@@ -528,6 +530,8 @@ export default function RegisterConferencePage() {
 
       const isBankTransfer = !!paymentMethod;
 
+      console.log('[Payment] paymentRequired:', paymentRequired, '| selectedCategory:', selectedCategory?.name_english, '| isBankTransfer:', isBankTransfer);
+
       if (paymentRequired && selectedCategory && !isBankTransfer) {
         setProcessingPayment(true);
 
@@ -536,6 +540,8 @@ export default function RegisterConferencePage() {
         const firstName = (formValues['input_id_21576'] as string) || '';
         const lastName = (formValues['input_id_35129'] as string) || '';
 
+        console.log('[Payment] Customer info - email:', customerEmail, '| name:', `${firstName} ${lastName}`.trim());
+
         if (!customerEmail) {
           setFormErrors(['Email is required for payment processing']);
           setSubmitting(false);
@@ -543,8 +549,24 @@ export default function RegisterConferencePage() {
           return;
         }
 
-        // Initialize payment
-        const paymentSession = await initializePayment({
+        // Build guests array for group registration
+        const paymentGuests: PaymentGuest[] = registrationType === 'group' && guests.length > 0
+          ? guests.map((guest) => {
+              const guestCategory = categories.find((cat) => cat.id === guest.categoryId);
+              return {
+                order_id: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+                amount: guestCategory ? parseFeeAmount(guestCategory.fee) : 0,
+                currency: guestCategory ? extractCurrency(guestCategory.fee) : extractCurrency(selectedCategory.fee),
+                category_id: guest.categoryId,
+                category_name: guestCategory?.name_english || selectedCategory.name_english,
+                attendence_type: attendanceType || 'PHYSICAL',
+                customer_email: guest.email,
+                customer_name: `${guest.firstName} ${guest.lastName}`.trim(),
+              };
+            })
+          : [];
+
+        const paymentConfig = {
           orderId: paymentData.orderId,
           amount: getPaymentAmount(selectedCategory.fee),
           currency: extractCurrency(selectedCategory.fee),
@@ -553,7 +575,15 @@ export default function RegisterConferencePage() {
           attendenceType: attendanceType || 'PHYSICAL',
           customerEmail,
           customerName: `${firstName} ${lastName}`.trim(),
-        });
+          ...(paymentGuests.length > 0 && { guests: paymentGuests }),
+        };
+
+        console.log('[Payment] Calling initializePayment with config:', paymentConfig);
+
+        // Initialize payment
+        const paymentSession = await initializePayment(paymentConfig);
+
+        console.log('[Payment] initializePayment result:', paymentSession);
 
         if (!paymentSession) {
           setFormErrors(['Failed to initialize payment. Please try again.']);
@@ -567,31 +597,29 @@ export default function RegisterConferencePage() {
         setShowPaymentModal(true);
         setProcessingPayment(false);
 
+        console.log('[Payment] Payment modal opened, calling processPayment...');
+
         // Setup payment callback
-        const paymentPromise = processPayment(paymentSession, {
-          orderId: paymentData.orderId,
-          amount: getPaymentAmount(selectedCategory.fee),
-          currency: extractCurrency(selectedCategory.fee),
-          categoryName: selectedCategory.name_english,
-          categoryId: selectedCategory.id,
-          attendenceType: attendanceType || 'PHYSICAL',
-          customerEmail,
-          customerName: `${firstName} ${lastName}`.trim(),
-        });
+        const paymentPromise = processPayment(paymentSession, paymentConfig);
 
         // Wait for payment result
         paymentResult = await paymentPromise;
+
+        console.log('[Payment] processPayment result:', paymentResult);
 
         // Close modal
         setShowPaymentModal(false);
 
         if (!paymentResult.success) {
+          console.log('[Payment] Payment failed:', paymentResult.error);
           setFormErrors([
             paymentResult.error || 'Payment was not completed. Please try again.',
           ]);
           setSubmitting(false);
           return;
         }
+
+        console.log('[Payment] Payment succeeded, updating payment data');
 
         // Update payment data
         setPaymentData({
@@ -646,6 +674,20 @@ export default function RegisterConferencePage() {
       // Add registration type
       if (isGroupRegistration && guests.length > 0) {
         formData.append('registration_type', 'group');
+
+        // Generate badge IDs for all guests and collect them into group_ids array
+        const groupIds: string[] = [];
+        const guestsWithBadgeIds = guests.map((guest, index) => {
+          const badgeId = `${Date.now()}${guest.categoryId}${index}${Math.random().toString().substring(2, 8)}`;
+          groupIds.push(badgeId);
+          return { ...guest, badgeId };
+        });
+
+        // Store guests with their badge IDs for later use in bulk invite
+        setGuests(guestsWithBadgeIds);
+
+        // Add group_ids array to the main registration
+        formData.append('group_ids', JSON.stringify(groupIds));
       } else {
         formData.append('registration_type', 'single');
       }
@@ -685,9 +727,9 @@ export default function RegisterConferencePage() {
               if (!category) continue;
 
               // Format guests data for this category
-              const guestsInputs = categoryGuests.map((guest, index) => {
-                // Generate unique badgeId for this guest (same for all their fields)
-                const badgeId = `${Date.now()}${parseInt(categoryId)}${index}${Math.random().toString().substring(2, 8)}`;
+              const guestsInputs = categoryGuests.map((guest) => {
+                // Use pre-generated badgeId from guest object
+                const badgeId = guest.badgeId || `${Date.now()}${parseInt(categoryId)}${Math.random().toString().substring(2, 8)}`;
 
                 return [
                   {
