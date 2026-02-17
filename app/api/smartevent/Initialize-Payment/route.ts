@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       customer_email,
       customer_name,
       attendence_type = 'PHYSICAL',
+      guests,
     } = body;
 
     // Validate required fields
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
     if (category_name) formData.append('category_name', category_name);
     if (customer_email) formData.append('customer_email', customer_email);
     if (customer_name) formData.append('customer_name', customer_name);
+    if (guests && Array.isArray(guests) && guests.length > 0) {
+      formData.append('guests', JSON.stringify(guests));
+    }
 
     const backendResponse = await fetch(apiEndpoint, {
       method: 'POST',
