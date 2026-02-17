@@ -1,39 +1,40 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
-import type { User } from '@/lib/types'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import type { User } from '@/lib/types';
 
 export default function Header() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [user, setUser] = useState<User | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
-    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+    const userStr =
+      typeof window !== 'undefined' ? localStorage.getItem('user') : null;
     if (userStr) {
       try {
-        setUser(JSON.parse(userStr))
+        setUser(JSON.parse(userStr));
       } catch (e) {
-        setUser(null)
+        setUser(null);
       }
     }
-  }, [pathname]) // Re-check when pathname changes
+  }, [pathname]); // Re-check when pathname changes
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('user')
-    setUser(null)
-    setMenuOpen(false)
-    router.push('/')
-  }
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    setUser(null);
+    setMenuOpen(false);
+    router.push('/');
+  };
 
   const isActive = (path: string) => {
-    return pathname === path
-  }
+    return pathname === path;
+  };
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -188,12 +189,6 @@ export default function Header() {
                 >
                   Login
                 </Link>
-                <Link
-                  href="/auth/register"
-                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-semibold"
-                >
-                  Register
-                </Link>
               </>
             )}
           </div>
@@ -306,5 +301,5 @@ export default function Header() {
         )}
       </div>
     </header>
-  )
+  );
 }
