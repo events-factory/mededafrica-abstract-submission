@@ -40,13 +40,27 @@ export default function Header() {
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
+          {/* Partner Logos */}
           <Link href="/" className="inline-block">
-            <img
-              src="/mededlogo.png"
-              alt="MedEd Africa Logo"
-              className="h-16 w-auto"
-            />
+            <div className="flex items-center gap-4">
+              <img
+                src="/moh_et.png"
+                alt="MOH Ethiopia Logo"
+                className="h-16 w-auto"
+              />
+              <div className="h-12 w-px bg-gray-300"></div>
+              <img
+                src="/mededlogo.png"
+                alt="MedEd Africa Logo"
+                className="h-16 w-auto"
+              />
+              <div className="h-12 w-px bg-gray-300"></div>
+              <img
+                src="/COMS-A_SHIELD+COMS-A COLORED.png"
+                alt="COMSA Logo"
+                className="h-14 w-auto"
+              />
+            </div>
           </Link>
 
           {/* Navigation */}
