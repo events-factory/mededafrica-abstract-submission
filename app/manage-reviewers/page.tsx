@@ -7,12 +7,10 @@ import AppLayout from '@/components/AppLayout'
 import type { StaffMember, StaffTopicAssignment } from '@/lib/types'
 
 const SUB_THEME_CATEGORIES = [
-  'Leadership, Governance, and African Ownership in Health Professions Education',
-  'Transformative Technologies, AI, and Innovation in Medical Education',
-  'Simulation-Based Education and Experiential Learning',
-  'Partnerships for Health Workforce and Systems Strengthening',
-  'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health',
-  'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change',
+  'Leadership, Governance, African Ownership and Partnerships for Health Workforce and Systems Transformation',
+  'Transformative Technologies, AI, Innovation, and Simulation-based Education in Medical Education',
+  'Towards a Healthier Africa: Maternal, Newborn, and Child Health (MNCH), Gender, Sexual & Reproductive Health, and Health Systems Strengthening',
+  'Learner-Centered Systems: Assessment and Accreditation',
 ]
 
 export default function ManageReviewersPage() {
