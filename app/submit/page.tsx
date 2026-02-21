@@ -15,12 +15,10 @@ const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), {
 })
 
 const SUB_THEME_CATEGORIES = [
-  { value: 'Leadership, Governance, and African Ownership in Health Professions Education', label: 'Leadership, Governance, and African Ownership in Health Professions Education' },
-  { value: 'Transformative Technologies, AI, and Innovation in Medical Education', label: 'Transformative Technologies, AI, and Innovation in Medical Education' },
-  { value: 'Simulation-Based Education and Experiential Learning', label: 'Simulation-Based Education and Experiential Learning' },
-  { value: 'Partnerships for Health Workforce and Systems Strengthening', label: 'Partnerships for Health Workforce and Systems Strengthening' },
-  { value: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health', label: 'Education for Impact: MNCH, Gender, and Sexual & Reproductive Health' },
-  { value: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change', label: 'Learners at the Center: Assessment, Accreditation, Research, and Implementation for Change' },
+  { value: 'Leadership, Governance, African Ownership and Partnerships for Health Workforce and Systems Transformation', label: 'Leadership, Governance, African Ownership and Partnerships for Health Workforce and Systems Transformation' },
+  { value: 'Transformative Technologies, AI, Innovation, and Simulation-based Education in Medical Education', label: 'Transformative Technologies, AI, Innovation, and Simulation-based Education in Medical Education' },
+  { value: 'Towards a Healthier Africa: Maternal, Newborn, and Child Health (MNCH), Gender, Sexual & Reproductive Health, and Health Systems Strengthening', label: 'Towards a Healthier Africa: Maternal, Newborn, and Child Health (MNCH), Gender, Sexual & Reproductive Health, and Health Systems Strengthening' },
+  { value: 'Learner-Centered Systems: Assessment and Accreditation', label: 'Learner-Centered Systems: Assessment and Accreditation' },
 ]
 
 const PRESENTATION_TYPES = [
