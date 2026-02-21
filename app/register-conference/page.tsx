@@ -1262,6 +1262,23 @@ export default function RegisterConferencePage() {
                   </button>
                 )}
               </div>
+              <p className="text-sm text-gray-700 mb-3">
+                All registration fees are listed in <strong>USD</strong>.{' '}
+                <strong>Early Bird rates apply to registrations completed before May 2026.</strong>{' '}
+                At this time, the platform accepts <strong>card payments only</strong>. Alternative payment
+                options in <strong>Ethiopian Birr (ETB)</strong>, including <strong>Telebirr</strong>, will
+                be available soon, and this page will be updated once enabled.
+              </p>
+              <p className="text-sm text-gray-700 mb-6">
+                <strong>Note:</strong> Any ETB amounts displayed are indicative and may change based on the
+                foreign exchange rate at the time of payment. <strong>Group rates apply to a group of 8.</strong>{' '}
+                Registration includes access to conference sessions and conference materials, optional activities
+                may require separate registration. An automated receipt will be issued after payment, invoices
+                are available on request. For support or payment questions, contact:{' '}
+                <a href="mailto:meddafrica@coms-africa.org" className="text-primary-600 hover:underline">
+                  meddafrica@coms-africa.org
+                </a>
+              </p>
               {categories.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">
                   No registration categories available at this time.
