@@ -56,7 +56,7 @@ export default function Header() {
               />
               <div className="h-12 w-px bg-gray-300"></div>
               <img
-                src="/COMS-A_SHIELD+COMS-A COLORED.png"
+                src="/comsa.png"
                 alt="COMSA Logo"
                 className="h-14 w-auto"
               />

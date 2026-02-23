@@ -1275,8 +1275,8 @@ export default function RegisterConferencePage() {
                 Registration includes access to conference sessions and conference materials, optional activities
                 may require separate registration. An automated receipt will be issued after payment, invoices
                 are available on request. For support or payment questions, contact:{' '}
-                <a href="mailto:meddafrica@coms-africa.org" className="text-primary-600 hover:underline">
-                  meddafrica@coms-africa.org
+                <a href="mailto:mededafrica@coms-africa.org" className="text-primary-600 hover:underline">
+                  mededafrica@coms-africa.org
                 </a>
               </p>
               {categories.length === 0 ? (
