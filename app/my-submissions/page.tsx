@@ -25,8 +25,8 @@ export default function MySubmissionsPage() {
 
     const user: User = JSON.parse(userStr)
 
-    // Verify user is not staff (is a submitter)
-    if (user.isStaff) {
+    // Verify user is not staff/admin (is a submitter)
+    if (user.isStaff || user.isSuperAdmin) {
       router.push('/dashboard')
       return
     }

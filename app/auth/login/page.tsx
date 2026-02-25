@@ -54,8 +54,8 @@ function LoginForm() {
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
 
-        // Redirect based on isStaff from backend
-        if (response.data.user.isStaff) {
+        // Redirect based on role from backend
+        if (response.data.user.isStaff || response.data.user.isSuperAdmin) {
           router.push('/dashboard');
         } else {
           router.push('/submit');
