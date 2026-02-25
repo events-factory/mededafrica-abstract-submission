@@ -216,7 +216,7 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {user.isStaff ? (
+          {(user.isStaff || user.isSuperAdmin) ? (
             <>
               <NavLink href="/dashboard" icon={DashboardIcon} label="Abstracts" />
               {/* <NavLink href="/participants" icon={ParticipantsIcon} label="Participants" /> */}
