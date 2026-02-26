@@ -40,8 +40,8 @@ export default function InviteStaffPage() {
 
     const user = JSON.parse(userStr)
 
-    // Verify user is staff
-    if (!user.isStaff) {
+    // Verify user is staff or super admin
+    if (!user.isStaff && !user.isSuperAdmin) {
       router.push('/')
       return
     }

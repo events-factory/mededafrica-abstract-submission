@@ -23,7 +23,7 @@ export default function ParticipantsPage() {
     }
 
     const userData = JSON.parse(user);
-    if (!userData.isStaff) {
+    if (!userData.isStaff && !userData.isSuperAdmin) {
       router.push('/');
       return;
     }
