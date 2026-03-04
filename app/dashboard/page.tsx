@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 import { abstractsApi } from '@/lib/api';
 import type { Abstract } from '@/lib/types';
 import AppLayout from '@/components/AppLayout';
@@ -75,6 +76,33 @@ export default function DashboardPage() {
       ? safeAbstracts
       : safeAbstracts.filter((abstract) => abstract.status === filter);
 
+  const exportToExcel = () => {
+    const rows = filteredAbstracts.map((a) => ({
+      ID: a.id,
+      Title: a.title,
+      'Presenter Name': a.presenterFullName,
+      'Presenter Email': a.presenterEmail,
+      'Presenter Phone': a.presenterPhone,
+      'Presenter Institution': a.presenterInstitution,
+      'Presenter Country': a.presenterCountry,
+      Category: a.subThemeCategory,
+      'Presentation Type': a.presentationType,
+      Status: a.status,
+      Points: a.points ?? '',
+      'Review Note': a.reviewNote ?? '',
+      'Reviewed By': a.reviewedBy ?? '',
+      'Reviewed At': a.reviewedAt ? new Date(a.reviewedAt).toLocaleDateString() : '',
+      'Submitted At': new Date(a.createdAt).toLocaleDateString(),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Abstracts');
+
+    const filename = `abstracts-${filter}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+  };
+
   return (
     <AppLayout>
       <div className="max-w-[1600px] mx-auto px-4 py-8">
@@ -95,6 +123,7 @@ export default function DashboardPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilter('all')}
@@ -149,6 +178,17 @@ export default function DashboardPage() {
               More Info Requested (
               {safeAbstracts.filter((a) => a.status === 'more_info_requested').length})
             </button>
+          </div>
+          <button
+            onClick={exportToExcel}
+            disabled={filteredAbstracts.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export Excel ({filteredAbstracts.length})
+          </button>
           </div>
         </div>
 
