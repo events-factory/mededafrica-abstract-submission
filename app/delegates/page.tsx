@@ -31,7 +31,7 @@ export default function DelegatesPage() {
     }
 
     const user = JSON.parse(userStr)
-    if (!user.isStaff) {
+    if (!user.isStaff && !user.isSuperAdmin) {
       router.push('/')
       return
     }
