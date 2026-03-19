@@ -66,6 +66,8 @@ export default function SubmitAbstractPage() {
     presenterPhone: string
     presenterInstitution: string
     presenterCountry: string
+    presenterGender: string
+    professionalStatus: string
     deanContact: string
     abstractBody: string
   }>({
@@ -78,6 +80,8 @@ export default function SubmitAbstractPage() {
     presenterPhone: '',
     presenterInstitution: '',
     presenterCountry: '',
+    presenterGender: '',
+    professionalStatus: '',
     deanContact: '',
     abstractBody: '',
   })
@@ -147,6 +151,8 @@ export default function SubmitAbstractPage() {
         presenterPhone: formData.presenterPhone,
         presenterInstitution: formData.presenterInstitution,
         presenterCountry: formData.presenterCountry,
+        presenterGender: formData.presenterGender,
+        professionalStatus: formData.professionalStatus,
         deanContact: formData.deanContact,
         abstractBody: formData.abstractBody,
       })
@@ -369,6 +375,46 @@ export default function SubmitAbstractPage() {
               </select>
             </div>
 
+            {/* Presenter's Gender */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Presenter&apos;s Gender <span className="text-accent-red">*</span>
+              </label>
+              <select
+                name="presenterGender"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                value={formData.presenterGender}
+                onChange={handleInputChange}
+              >
+                <option value="">Choose</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
+            </div>
+
+            {/* Professional Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Professional Status <span className="text-accent-red">*</span>
+              </label>
+              <select
+                name="professionalStatus"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                value={formData.professionalStatus}
+                onChange={handleInputChange}
+              >
+                <option value="">Choose</option>
+                <option value="Student">Student</option>
+                <option value="Faculty">Faculty</option>
+                <option value="Dean">Dean</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
             {/* Optional: Dean contact */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -425,6 +471,8 @@ export default function SubmitAbstractPage() {
                       presenterPhone: '',
                       presenterInstitution: '',
                       presenterCountry: '',
+                      presenterGender: '',
+                      professionalStatus: '',
                       deanContact: '',
                       abstractBody: '',
                     })

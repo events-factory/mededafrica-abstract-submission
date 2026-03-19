@@ -31,6 +31,8 @@ export interface Abstract {
   presenterPhone: string
   presenterInstitution: string
   presenterCountry: string
+  presenterGender: string
+  professionalStatus: string
   deanContact?: string
   abstractBody: string
   submittedBy: string
