@@ -342,6 +342,22 @@ export default function AbstractDetailPage() {
                     {abstract.presenterCountry}
                   </span>
                 </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-sm font-semibold text-gray-700">
+                    Gender:
+                  </span>
+                  <span className="col-span-2 text-gray-900">
+                    {abstract.presenterGender}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-sm font-semibold text-gray-700">
+                    Professional Status:
+                  </span>
+                  <span className="col-span-2 text-gray-900">
+                    {abstract.professionalStatus}
+                  </span>
+                </div>
                 {abstract.deanContact && (
                   <div className="grid grid-cols-3 gap-2">
                     <span className="text-sm font-semibold text-gray-700">

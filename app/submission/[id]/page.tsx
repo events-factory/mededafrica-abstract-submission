@@ -318,6 +318,16 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
                   <p className="text-gray-900 mt-1">{abstract.presenterCountry}</p>
                 </div>
 
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Gender</label>
+                  <p className="text-gray-900 mt-1">{abstract.presenterGender}</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Professional Status</label>
+                  <p className="text-gray-900 mt-1">{abstract.professionalStatus}</p>
+                </div>
+
                 <div className="md:col-span-2">
                   <label className="text-sm font-medium text-gray-700">Institution</label>
                   <p className="text-gray-900 mt-1">{abstract.presenterInstitution}</p>
