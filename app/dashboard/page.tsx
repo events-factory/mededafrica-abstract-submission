@@ -85,6 +85,8 @@ export default function DashboardPage() {
       'Presenter Phone': a.presenterPhone,
       'Presenter Institution': a.presenterInstitution,
       'Presenter Country': a.presenterCountry,
+      'Presenter Gender': a.presenterGender,
+      'Professional Status': a.professionalStatus,
       Category: a.subThemeCategory,
       'Presentation Type': a.presentationType,
       Status: a.status,
