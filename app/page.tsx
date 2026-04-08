@@ -94,6 +94,89 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Registration and Payment Notice */}
+        <div className="max-w-3xl mx-auto mt-16">
+          <h2 className="text-3xl font-bold text-primary-700 mb-6">
+            Registration and Payment Notice
+          </h2>
+          <p className="text-gray-700 mb-8">
+            All registration fees are listed in USD and ETB. Early Bird rates apply to registrations completed before May 2026.
+          </p>
+
+          {/* Card Payment */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-primary-600 mb-3">Card Payment</h3>
+            <p className="text-gray-700">
+              This platform accepts debit or credit card payments. Once payment is confirmed, your registration will be automatically approved and a receipt will be sent to your email address.
+            </p>
+          </div>
+
+          {/* Bank Transfer */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-primary-600 mb-3">Bank Transfer in Ethiopian Birr (ETB)</h3>
+            <p className="text-gray-700 mb-3">
+              Delegates who wish to pay in Ethiopian Birr may do so via bank transfer by scanning the barcode below. A valid Ethiopian commercial bank account is required.
+            </p>
+            <p className="text-gray-700 mb-6">
+              <span className="font-semibold">Important:</span> After completing the bank transfer, upload your payment receipt to the form below. Your registration will be reviewed and approved once the receipt is verified.{' '}
+              <a
+                href="https://docs.google.com/forms/d/e/1FAIpQLScQTMbmCuVOkm5Nnv24kHkwiHYVu9t_HMbmBjhpFJ8Kxk_dkw/closedform"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 underline hover:text-primary-700"
+              >
+                Upload your Payment receipt here!
+              </a>
+            </p>
+
+            {/* Bank Transfer Barcode */}
+            <h4 className="text-lg font-semibold text-primary-700 mb-4">Bank Transfer Barcode</h4>
+            <div className="flex justify-center">
+              <div className="border-4 border-purple-600 rounded-lg p-4 w-72 text-center bg-white shadow-md">
+                <div className="bg-yellow-700 text-white text-xs font-semibold py-1 px-2 rounded mb-3">
+                  WE ACCEPT QR PAYMENT
+                </div>
+                <div className="text-2xl font-bold mb-3 tracking-wide">
+                  <span className="text-green-600">ETH</span>
+                  <span className="text-red-500">Q</span>
+                  <span className="text-blue-600">R</span>
+                </div>
+                <div className="bg-gray-100 rounded p-4 mb-3 mx-auto w-36 h-36 flex items-center justify-center border border-gray-300">
+                  <p className="text-xs text-gray-500 text-center">QR Code<br />(Ethiopian Interoperable<br />Payment)</p>
+                </div>
+                <p className="font-bold text-sm text-gray-800 mb-1">MOH CONTR FOR HEALTH CARE RESTOR B</p>
+                <p className="text-sm text-gray-600 mb-3">1****3337</p>
+                <div className="border-t border-gray-300 pt-2 flex items-center justify-center gap-2">
+                  <span className="text-xs text-gray-500">Acquired by</span>
+                </div>
+                <p className="font-semibold text-sm text-gray-700 mt-1">Commercial Bank of Ethiopia</p>
+                <p className="text-xs text-gray-500">Contact us: 951 | Email: contact@cbe.com</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Notes */}
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-primary-600 mb-3">Additional Notes</h3>
+            <ul className="list-disc list-inside space-y-2 text-gray-700">
+              <li>Group rates apply to groups of 8 or more delegates.</li>
+              <li>Registration includes access to conference sessions and conference materials. Optional activities may require separate registration.</li>
+              <li>ETB amounts are indicative and subject to change based on the foreign exchange rate at the time of payment.</li>
+              <li>Invoices are available on request after payment is completed.</li>
+            </ul>
+          </div>
+
+          <p className="text-gray-700">
+            For support or payment questions, contact:{' '}
+            <a
+              href="mailto:mededafrica@coms-africa.org"
+              className="text-primary-600 underline hover:text-primary-700"
+            >
+              mededafrica@coms-africa.org
+            </a>
+          </p>
+        </div>
       </div>
       <Footer />
     </div>
