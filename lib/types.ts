@@ -38,11 +38,51 @@ export interface Abstract {
   submittedBy: string
   status: 'pending' | 'approved' | 'rejected' | 'more_info_requested'
   points?: number | null
+  equityPoints?: number | null
   reviewNote?: string
   reviewedBy?: string
   reviewedAt?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface ScientificReviewPayload {
+  titleClarity: number
+  structuredFormat: number
+  relevance: number
+  methodology: number
+  dataQuality: number
+  conclusions: number
+  originality: number
+  contribution: number
+  overallMerit: number
+  comment?: string
+}
+
+export interface ScientificReview extends ScientificReviewPayload {
+  id: number
+  abstractId: number
+  reviewedBy: string
+  totalScore: number
+  recommendation: 'accept_oral' | 'accept_poster' | 'not_accepted'
+  createdAt: string
+}
+
+export interface ReviewsSummary {
+  reviews: ScientificReview[]
+  averageScientificMerit: number
+  reviewCount: number
+  meetsMinimumThreshold: boolean
+}
+
+export interface BonusPointsPayload {
+  geoBonusUnderrepresentedRegion: number
+  geoBonusLMIC: number
+  geoBonusFirstTimeInstitution: number
+  equityBonusUnderrepresentedGender: number
+  equityBonusMemberUniversity: number
+  equityBonusPartnerInstitution: number
+  note?: string
 }
 
 export interface AbstractComment {
