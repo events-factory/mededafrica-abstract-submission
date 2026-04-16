@@ -8,6 +8,10 @@ import {
   ApiResponse,
   StaffMember,
   StaffTopicAssignment,
+  ScientificReviewPayload,
+  ScientificReview,
+  ReviewsSummary,
+  BonusPointsPayload,
 } from './types';
 
 // Use local proxy to avoid CORS issues
@@ -255,6 +259,26 @@ export const abstractsApi = {
   getChangelog: async (id: number) => {
     return apiRequest<Changelog>(`/abstracts/${id}/changelog`, {
       method: 'GET',
+    });
+  },
+
+  submitReview: async (id: number, data: ScientificReviewPayload) => {
+    return apiRequest<ScientificReview>(`/abstracts/${id}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getReviews: async (id: number) => {
+    return apiRequest<ReviewsSummary>(`/abstracts/${id}/reviews`, {
+      method: 'GET',
+    });
+  },
+
+  updateBonusPoints: async (id: number, data: BonusPointsPayload) => {
+    return apiRequest<Abstract>(`/abstracts/${id}/bonus-points`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   },
 };
