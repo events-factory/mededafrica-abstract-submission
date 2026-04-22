@@ -8,39 +8,56 @@ import type {
   Abstract,
   AbstractComment,
   ReviewsSummary,
+  SCScorePayload,
   BonusPointsPayload,
 } from '@/lib/types';
 import ChangelogModal from '@/components/ChangelogModal';
 import AppLayout from '@/components/AppLayout';
 
-// Section A: 9-criteria scientific merit scoring (max 100)
+// Section A: 6-criteria scientific merit scoring (max 30, scale 1–5 per criterion)
 const REVIEW_CRITERIA = [
-  { key: 'titleClarity',     label: 'Title Clarity',     max: 5,  description: 'Title is clear and accurately reflects the content' },
-  { key: 'structuredFormat', label: 'Structured Format', max: 10, description: 'Abstract follows a structured format (background, methods, results, conclusion)' },
-  { key: 'relevance',        label: 'Relevance',         max: 15, description: 'Topic is relevant to the conference themes' },
-  { key: 'methodology',      label: 'Methodology',       max: 20, description: 'Research methodology is sound and well-described' },
-  { key: 'dataQuality',      label: 'Data Quality',      max: 15, description: 'Data is accurate and appropriately analyzed' },
-  { key: 'conclusions',      label: 'Conclusions',       max: 10, description: 'Conclusions are supported by the results' },
-  { key: 'originality',      label: 'Originality',       max: 10, description: 'Work presents novel ideas or findings' },
-  { key: 'contribution',     label: 'Contribution',      max: 10, description: 'Contributes meaningfully to the field' },
-  { key: 'overallMerit',     label: 'Overall Merit',     max: 5,  description: 'Overall quality of the abstract' },
+  { key: 'relevance',     label: 'Relevance',      max: 5, description: 'Title is relevant to the conference theme and sub-theme' },
+  { key: 'objectives',    label: 'Objectives',     max: 5, description: 'Abstract clearly states the research objectives' },
+  { key: 'methodology',   label: 'Methodology',    max: 5, description: 'Research methodology is appropriate and described' },
+  { key: 'results',       label: 'Results',        max: 5, description: 'Results of analysis are correctly interpreted' },
+  { key: 'conclusions',   label: 'Conclusions',    max: 5, description: 'Conclusions and recommendations are sound' },
+  { key: 'writingQuality',label: 'Writing Quality',max: 5, description: 'Abstract is free from grammatical and spelling errors' },
 ] as const;
 
 type ReviewKey = typeof REVIEW_CRITERIA[number]['key'];
 type ReviewScores = Record<ReviewKey, number>;
 
 const INITIAL_SCORES: ReviewScores = {
+  relevance: 0, objectives: 0, methodology: 0, results: 0, conclusions: 0, writingQuality: 0,
+};
+
+// Section B: auto-computed recommendation thresholds (max 30 pts)
+function getRecommendation(total: number): { label: string; color: string; bg: string } {
+  if (total >= 25) return { label: 'Excellent — Accept for Oral Presentation',          color: 'text-green-800',  bg: 'bg-green-100 border-green-300'  };
+  if (total >= 20) return { label: 'Good — Accept for Oral (minor revisions)',           color: 'text-blue-800',   bg: 'bg-blue-100 border-blue-300'    };
+  if (total >= 15) return { label: 'Average — Accept for Poster Presentation',           color: 'text-yellow-800', bg: 'bg-yellow-100 border-yellow-300' };
+  if (total >= 10) return { label: 'Below Average — Invite resubmission after revision', color: 'text-orange-800', bg: 'bg-orange-100 border-orange-300' };
+  if (total > 0)   return { label: 'Very Poor — Reject',                                 color: 'text-red-800',    bg: 'bg-red-100 border-red-300'       };
+  return             { label: '—',                                                       color: 'text-gray-500',   bg: 'bg-gray-50 border-gray-200'      };
+}
+
+// Section B (SC only): 9-criteria detailed quality scoring (max 100)
+const SC_CRITERIA = [
+  { key: 'titleClarity'     as const, label: 'Title Clarity',     max: 5  },
+  { key: 'structuredFormat' as const, label: 'Structured Format', max: 10 },
+  { key: 'relevance'        as const, label: 'Relevance',         max: 15 },
+  { key: 'methodology'      as const, label: 'Methodology',       max: 20 },
+  { key: 'dataQuality'      as const, label: 'Data Quality',      max: 15 },
+  { key: 'conclusions'      as const, label: 'Conclusions',       max: 10 },
+  { key: 'originality'      as const, label: 'Originality',       max: 10 },
+  { key: 'contribution'     as const, label: 'Contribution',      max: 10 },
+  { key: 'overallMerit'     as const, label: 'Overall Merit',     max: 5  },
+];
+
+const INITIAL_SC_SCORES: SCScorePayload = {
   titleClarity: 0, structuredFormat: 0, relevance: 0, methodology: 0,
   dataQuality: 0, conclusions: 0, originality: 0, contribution: 0, overallMerit: 0,
 };
-
-// Section B: auto-computed recommendation thresholds
-function getRecommendation(total: number): { label: string; color: string; bg: string } {
-  if (total >= 85) return { label: 'Accept — Oral Presentation (Podium)', color: 'text-green-800', bg: 'bg-green-100 border-green-300' };
-  if (total >= 70) return { label: 'Accept — Poster Presentation',        color: 'text-blue-800',  bg: 'bg-blue-100 border-blue-300'  };
-  if (total > 0)   return { label: 'Not Accepted',                        color: 'text-red-800',   bg: 'bg-red-100 border-red-300'    };
-  return             { label: '—',                                        color: 'text-gray-500',  bg: 'bg-gray-50 border-gray-200'   };
-}
 
 // Sections C & D: Bonus point categories
 const GEO_BONUS_CRITERIA = [
@@ -81,6 +98,13 @@ export default function AbstractDetailPage() {
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [approveNote, setApproveNote] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ status: 'rejected' | 'more_info_requested'; message: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   // Section A: review form state
   const [reviewScores, setReviewScores] = useState<ReviewScores>({ ...INITIAL_SCORES });
@@ -88,6 +112,12 @@ export default function AbstractDetailPage() {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<ReviewsSummary | null>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // Section B (SC): detailed quality scoring state
+  const [scScores, setScScores] = useState<SCScorePayload>({ ...INITIAL_SC_SCORES });
+  const [scComment, setScComment] = useState('');
+  const [scLoading, setScLoading] = useState(false);
+  const [scTotalDisplay, setScTotalDisplay] = useState<number | null>(null);
 
   // Sections C & D: bonus points state
   const [bonusData, setBonusData] = useState<BonusPointsPayload>({ ...INITIAL_BONUS });
@@ -104,10 +134,17 @@ export default function AbstractDetailPage() {
       router.push('/');
       return;
     }
-    setIsSuperAdmin(userData.isSuperAdmin || false);
+    const superAdmin = userData.isSuperAdmin || false;
+    setIsSuperAdmin(superAdmin);
     fetchAbstractDetails();
     fetchComments();
     fetchReviews();
+    if (superAdmin) {
+      // Restore from localStorage immediately, then try GET endpoint
+      const cached = localStorage.getItem(`sc-score-${abstractId}`);
+      if (cached) setScTotalDisplay(parseInt(cached));
+      fetchSCScore();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abstractId]);
 
@@ -139,9 +176,27 @@ export default function AbstractDetailPage() {
     setReviewsLoading(false);
   };
 
-  const handleStatusUpdate = async (
-    status: 'approved' | 'rejected' | 'more_info_requested',
-  ) => {
+  const persistSCTotal = (total: number) => {
+    setScTotalDisplay(total);
+    localStorage.setItem(`sc-score-${abstractId}`, String(total));
+  };
+
+  const fetchSCScore = async () => {
+    const response = await abstractsApi.getSCScore(abstractId);
+    if (response.data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = response.data as any;
+      const total = d.scientificMeritTotal ?? d.totalScore ?? (
+        d.titleClarity != null
+          ? d.titleClarity + d.structuredFormat + d.relevance + d.methodology +
+            d.dataQuality + d.conclusions + d.originality + d.contribution + d.overallMerit
+          : null
+      );
+      if (total != null && total > 0) persistSCTotal(total);
+    }
+  };
+
+  const handleStatusUpdate = (status: 'approved' | 'rejected' | 'more_info_requested') => {
     if (!abstract) return;
     if (status === 'approved') {
       setApproveModalOpen(true);
@@ -151,7 +206,13 @@ export default function AbstractDetailPage() {
       rejected: 'Are you sure you want to reject this abstract?',
       more_info_requested: 'Are you sure you want to request more information?',
     };
-    if (!confirm(confirmMessages[status])) return;
+    setConfirmModal({ status, message: confirmMessages[status] });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmModal) return;
+    const { status } = confirmModal;
+    setConfirmModal(null);
     setActionLoading(true);
     const response =
       status === 'rejected'
@@ -159,9 +220,9 @@ export default function AbstractDetailPage() {
         : await abstractsApi.requestMoreInfo(abstractId);
     if (response.data) {
       setAbstract(response.data);
-      alert(`Abstract ${status.replace(/_/g, ' ')} successfully!`);
+      showToast('success', `Abstract ${status.replace(/_/g, ' ')} successfully.`);
     } else {
-      alert('Failed to update abstract status');
+      showToast('error', 'Failed to update abstract status.');
     }
     setActionLoading(false);
   };
@@ -172,9 +233,9 @@ export default function AbstractDetailPage() {
     const response = await abstractsApi.approve(abstractId, approveNote || undefined);
     if (response.data) {
       setAbstract(response.data);
-      alert('Abstract approved successfully!');
+      showToast('success', 'Abstract approved successfully.');
     } else {
-      alert('Failed to approve abstract');
+      showToast('error', 'Failed to approve abstract.');
     }
     setApproveModalOpen(false);
     setApproveNote('');
@@ -182,11 +243,6 @@ export default function AbstractDetailPage() {
   };
 
   const handleSubmitReview = async () => {
-    const allScored = REVIEW_CRITERIA.every(c => reviewScores[c.key] > 0);
-    if (!allScored) {
-      alert('Please score all criteria before submitting.');
-      return;
-    }
     setReviewLoading(true);
     const response = await abstractsApi.submitReview(abstractId, {
       ...reviewScores,
@@ -196,18 +252,43 @@ export default function AbstractDetailPage() {
       setReviewScores({ ...INITIAL_SCORES });
       setReviewComment('');
       await fetchReviews();
-      alert('Review submitted successfully!');
+      showToast('success', 'Review submitted successfully.');
     } else {
-      alert('Failed to submit review');
+      showToast('error', 'Failed to submit review.');
     }
     setReviewLoading(false);
   };
 
-  const handleUpdateBonusPoints = async () => {
-    if (!reviewSummary?.meetsMinimumThreshold) {
-      alert('Cannot assign bonus points: average scientific merit is below 70.');
-      return;
+  const handleSubmitSCScores = async () => {
+    // Capture live total before any reset
+    const liveTotal = Object.entries(scScores)
+      .filter(([k]) => k !== 'comment')
+      .reduce((sum, [, v]) => sum + (v as number), 0);
+
+    setScLoading(true);
+    const response = await abstractsApi.submitSCScores(abstractId, {
+      ...scScores,
+      comment: scComment || undefined,
+    });
+    if (response.data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = response.data as any;
+      const total = d.scientificMeritTotal ?? liveTotal;
+      if (total > 0) persistSCTotal(total);
+      setAbstract(prev => prev ? { ...prev, points: total } : prev);
+      setScScores({ ...INITIAL_SC_SCORES });
+      setScComment('');
+      showToast('success', 'SC scores submitted successfully.');
+    } else {
+      const msg = typeof response.message === 'string' ? response.message : 'Failed to submit SC scores.';
+      showToast('error', msg);
+      if (liveTotal > 0) persistSCTotal(liveTotal);
+      else fetchSCScore();
     }
+    setScLoading(false);
+  };
+
+  const handleUpdateBonusPoints = async () => {
     setBonusLoading(true);
     const response = await abstractsApi.updateBonusPoints(abstractId, {
       ...bonusData,
@@ -215,9 +296,9 @@ export default function AbstractDetailPage() {
     });
     if (response.data) {
       setAbstract(response.data);
-      alert('Bonus points updated successfully!');
+      showToast('success', 'Bonus points updated successfully.');
     } else {
-      alert('Failed to update bonus points');
+      showToast('error', 'Failed to update bonus points.');
     }
     setBonusLoading(false);
   };
@@ -231,7 +312,7 @@ export default function AbstractDetailPage() {
       setComments([...comments, response.data]);
       setNewComment('');
     } else {
-      alert('Failed to add comment');
+      showToast('error', 'Failed to add comment.');
     }
     setCommentLoading(false);
   };
@@ -260,6 +341,12 @@ export default function AbstractDetailPage() {
   const reviewTotal = Object.values(reviewScores).reduce((sum, v) => sum + v, 0);
   const reviewRec = getRecommendation(reviewTotal);
   const allScored = REVIEW_CRITERIA.every(c => reviewScores[c.key] > 0);
+
+  // Compute average and threshold client-side from reviews array
+  const avgMerit = reviewSummary && reviewSummary.reviews.length > 0
+    ? reviewSummary.reviews.reduce((sum, r) => sum + r.totalScore, 0) / reviewSummary.reviews.length
+    : 0;
+  const meetsThreshold = avgMerit >= 21;
 
   const bonusTotal =
     bonusData.geoBonusUnderrepresentedRegion +
@@ -299,6 +386,42 @@ export default function AbstractDetailPage() {
 
   return (
     <AppLayout>
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-5 right-5 z-50 flex items-start gap-3 min-w-72 max-w-sm px-4 py-3 rounded-xl shadow-lg border animate-fade-in"
+          style={{ background: toast.type === 'success' ? '#f0fdf4' : '#fef2f2', borderColor: toast.type === 'success' ? '#bbf7d0' : '#fecaca' }}>
+          <span className={`mt-0.5 shrink-0 text-lg ${toast.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+            {toast.type === 'success' ? '✓' : '✕'}
+          </span>
+          <p className={`text-sm font-medium ${toast.type === 'success' ? 'text-green-800' : 'text-red-700'}`}>{toast.message}</p>
+          <button onClick={() => setToast(null)} className="ml-auto text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+        </div>
+      )}
+
+      {/* Confirm action modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmModal(null)} />
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 p-6">
+            <p className="text-gray-800 font-medium mb-5">{confirmModal.message}</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAction}
+                className="px-4 py-2 bg-accent-red text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="py-8 px-4">
         <div className="max-w-5xl mx-auto">
 
@@ -309,9 +432,22 @@ export default function AbstractDetailPage() {
                 <h1 className="text-2xl font-bold text-gray-800 mb-2">Review Abstract</h1>
                 <div className="flex items-center gap-3 flex-wrap">
                   {getStatusBadge(abstract.status)}
+                  {reviewSummary && reviewSummary.reviewCount > 0 && (
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border ${meetsThreshold ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                      Reviewers:&nbsp;<span className="font-black">{Math.round(avgMerit)}</span>
+                      <span className="font-normal opacity-60">/30</span>
+                      <span className="text-xs opacity-60 ml-1">({reviewSummary.reviewCount})</span>
+                    </span>
+                  )}
+                  {scTotalDisplay != null && scTotalDisplay > 0 && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-blue-50 text-blue-800 border-blue-200">
+                      SC:&nbsp;<span className="font-black">{scTotalDisplay}</span>
+                      <span className="font-normal opacity-60">/100</span>
+                    </span>
+                  )}
                   {abstract.equityPoints != null && abstract.equityPoints > 0 && (
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
-                      +{abstract.equityPoints} bonus pts
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-purple-50 text-purple-800 border-purple-200">
+                      Bonus:&nbsp;<span className="font-black">+{abstract.equityPoints}</span>
                     </span>
                   )}
                   <span className="text-sm text-gray-500">
@@ -375,32 +511,34 @@ export default function AbstractDetailPage() {
                 </div>
               </div>
 
-              {/* Presenter Details */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Presenter Details</h2>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Name:',                value: abstract.presenterFullName },
-                    { label: 'Email:',               value: abstract.presenterEmail },
-                    { label: 'Phone:',               value: abstract.presenterPhone },
-                    { label: 'Institution:',         value: abstract.presenterInstitution },
-                    { label: 'Country:',             value: abstract.presenterCountry },
-                    { label: 'Gender:',              value: abstract.presenterGender },
-                    { label: 'Professional Status:', value: abstract.professionalStatus },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="grid grid-cols-3 gap-2">
-                      <span className="text-sm font-semibold text-gray-700">{label}</span>
-                      <span className="col-span-2 text-gray-900">{value}</span>
-                    </div>
-                  ))}
-                  {abstract.deanContact && (
-                    <div className="grid grid-cols-3 gap-2">
-                      <span className="text-sm font-semibold text-gray-700">Dean Contact:</span>
-                      <span className="col-span-2 text-gray-900 whitespace-pre-wrap">{abstract.deanContact}</span>
-                    </div>
-                  )}
+              {/* Presenter Details — Super Admin only */}
+              {isSuperAdmin && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-bold text-gray-800 mb-4">Presenter Details</h2>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Name:',                value: abstract.presenterFullName },
+                      { label: 'Email:',               value: abstract.presenterEmail },
+                      { label: 'Phone:',               value: abstract.presenterPhone },
+                      { label: 'Institution:',         value: abstract.presenterInstitution },
+                      { label: 'Country:',             value: abstract.presenterCountry },
+                      { label: 'Gender:',              value: abstract.presenterGender },
+                      { label: 'Professional Status:', value: abstract.professionalStatus },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="grid grid-cols-3 gap-2">
+                        <span className="text-sm font-semibold text-gray-700">{label}</span>
+                        <span className="col-span-2 text-gray-900">{value}</span>
+                      </div>
+                    ))}
+                    {abstract.deanContact && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <span className="text-sm font-semibold text-gray-700">Dean Contact:</span>
+                        <span className="col-span-2 text-gray-900 whitespace-pre-wrap">{abstract.deanContact}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Abstract Body */}
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -419,7 +557,7 @@ export default function AbstractDetailPage() {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="mb-4">
                   <h2 className="text-lg font-bold text-gray-800">Section A — Scientific Merit</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Score each criterion. Total: 100 pts.</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Score each criterion (1–5). Total: 30 pts.</p>
                 </div>
 
                 <div className="space-y-3">
@@ -456,7 +594,7 @@ export default function AbstractDetailPage() {
                   </div>
                   <p className={`text-2xl font-black ${reviewRec.color}`}>
                     {reviewTotal}
-                    <span className="text-sm font-semibold opacity-60">/100</span>
+                    <span className="text-sm font-semibold opacity-60">/30</span>
                   </p>
                 </div>
 
@@ -482,8 +620,8 @@ export default function AbstractDetailPage() {
                 )}
               </div>
 
-              {/* Reviews Summary */}
-              {reviewsLoading ? (
+              {/* Reviews Summary — Super Admin only */}
+              {isSuperAdmin && (reviewsLoading ? (
                 <div className="bg-white rounded-lg shadow-md p-6 text-center text-sm text-gray-500">
                   Loading reviews...
                 </div>
@@ -496,7 +634,7 @@ export default function AbstractDetailPage() {
                         {reviewSummary.reviewCount} review{reviewSummary.reviewCount !== 1 ? 's' : ''}
                       </p>
                       {(() => {
-                        const avg = Math.round(reviewSummary.averageScientificMerit);
+                        const avg = Math.round(avgMerit);
                         const rec = getRecommendation(avg);
                         return (
                           <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold border ${rec.bg} ${rec.color}`}>
@@ -506,12 +644,12 @@ export default function AbstractDetailPage() {
                       })()}
                     </div>
                     <div className="text-right">
-                      <p className={`text-3xl font-black ${reviewSummary.meetsMinimumThreshold ? 'text-green-700' : 'text-red-600'}`}>
-                        {Math.round(reviewSummary.averageScientificMerit)}
-                        <span className="text-sm font-semibold opacity-60">/100</span>
+                      <p className={`text-3xl font-black ${meetsThreshold ? 'text-green-700' : 'text-red-600'}`}>
+                        {Math.round(avgMerit)}
+                        <span className="text-sm font-semibold opacity-60">/30</span>
                       </p>
-                      <p className={`text-xs mt-0.5 font-medium ${reviewSummary.meetsMinimumThreshold ? 'text-green-600' : 'text-red-500'}`}>
-                        {reviewSummary.meetsMinimumThreshold ? 'Meets threshold' : 'Below minimum (70)'}
+                      <p className={`text-xs mt-0.5 font-medium ${meetsThreshold ? 'text-green-600' : 'text-red-500'}`}>
+                        {meetsThreshold ? 'Meets threshold' : 'Below minimum (21)'}
                       </p>
                     </div>
                   </div>
@@ -522,7 +660,7 @@ export default function AbstractDetailPage() {
                       <div key={r.id} className="border border-gray-100 rounded-lg px-3 py-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-600 font-medium">Reviewer {i + 1}</span>
-                          <span className="text-xs font-bold text-[#1a3a5c]">{r.totalScore}/100</span>
+                          <span className="text-xs font-bold text-[#1a3a5c]">{r.totalScore}/30</span>
                         </div>
                         {r.comment && (
                           <p className="text-xs text-gray-500 mt-1 italic">&ldquo;{r.comment}&rdquo;</p>
@@ -531,102 +669,149 @@ export default function AbstractDetailPage() {
                     ))}
                   </div>
                 </div>
-              ) : null}
+              ) : null)}
+
+              {/* Section B: SC Detailed Quality Scoring — Super Admin only */}
+              {isSuperAdmin && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-800">Section B — SC Quality Review</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">Scientific Committee only. Total: 100 pts.</p>
+                    </div>
+                    {scTotalDisplay != null && scTotalDisplay > 0 && (
+                      <div className="text-right shrink-0 ml-3">
+                        <p className="text-xs text-gray-500 mb-0.5">Submitted</p>
+                        <p className="text-2xl font-black text-[#1a3a5c] leading-none">
+                          {scTotalDisplay}
+                          <span className="text-sm font-semibold opacity-50">/100</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {SC_CRITERIA.map(c => {
+                      const val = scScores[c.key];
+                      return (
+                        <div key={c.key}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-gray-700">{c.label}</span>
+                            <span className="text-xs font-mono text-gray-500">
+                              <span className={val > 0 ? 'text-[#1a3a5c] font-bold' : ''}>{val}</span>/{c.max}
+                            </span>
+                          </div>
+                          <input
+                            type="range" min={0} max={c.max} value={val}
+                            onChange={e => setScScores(prev => ({ ...prev, [c.key]: parseInt(e.target.value) }))}
+                            className="w-full h-1.5 rounded-full accent-[#1a3a5c] cursor-pointer"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(() => {
+                    const scTotal = Object.entries(scScores)
+                      .filter(([k]) => k !== 'comment')
+                      .reduce((sum, [, v]) => sum + (v as number), 0);
+                    const rec = getRecommendation(scTotal >= 85 ? 25 : scTotal >= 70 ? 20 : scTotal >= 50 ? 15 : scTotal >= 35 ? 10 : scTotal > 0 ? 5 : 0);
+                    return (
+                      <div className={`mt-4 rounded-lg border px-3 py-2.5 flex items-center justify-between ${rec.bg}`}>
+                        <p className={`text-xs font-semibold ${rec.color}`}>SC Total</p>
+                        <p className={`text-2xl font-black ${rec.color}`}>
+                          {scTotal}<span className="text-sm font-semibold opacity-60">/100</span>
+                        </p>
+                      </div>
+                    );
+                  })()}
+                  <textarea
+                    rows={2} value={scComment}
+                    onChange={e => setScComment(e.target.value)}
+                    placeholder="SC comment (optional)..."
+                    className="mt-3 w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#1a3a5c] focus:border-transparent resize-none"
+                  />
+                  <button
+                    onClick={handleSubmitSCScores}
+                    disabled={scLoading}
+                    className="mt-3 w-full px-4 py-2 bg-[#1a3a5c] text-white rounded-lg hover:bg-[#25527f] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {scLoading ? 'Submitting...' : 'Submit SC Scores'}
+                  </button>
+                </div>
+              )}
 
               {/* Sections C & D: Bonus Points — Super Admin only */}
               {isSuperAdmin && (
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="mb-4">
                     <h2 className="text-lg font-bold text-gray-800">Sections C & D — Bonus Points</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Super admin only. Requires avg scientific merit ≥ 70.</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Super admin only.</p>
                   </div>
 
-                  {!reviewSummary?.meetsMinimumThreshold ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-700">
-                      Bonus points cannot be assigned until the average scientific merit meets the minimum threshold of 70/100.
-                    </div>
-                  ) : (
-                    <>
-                      {/* Section C: Geographical */}
-                      <div className="mb-4">
-                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
-                          Section C — Geographical (max 10)
-                        </p>
-                        {GEO_BONUS_CRITERIA.map(b => (
-                          <div key={b.key} className="mb-2.5">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-gray-700">{b.label}</span>
-                              <span className="text-xs font-mono font-bold text-[#1a3a5c]">
-                                {bonusData[b.key]}/{b.max}
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min={0}
-                              max={b.max}
-                              value={bonusData[b.key]}
-                              onChange={e =>
-                                setBonusData(prev => ({ ...prev, [b.key]: parseInt(e.target.value) }))
-                              }
-                              className="w-full h-1.5 rounded-full accent-purple-600 cursor-pointer"
-                            />
-                          </div>
-                        ))}
+                  {/* Section C: Geographical */}
+                  <div className="mb-4">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
+                      Section C — Geographical (max 10)
+                    </p>
+                    {GEO_BONUS_CRITERIA.map(b => (
+                      <div key={b.key} className="mb-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-700">{b.label}</span>
+                          <span className="text-xs font-mono font-bold text-[#1a3a5c]">
+                            {bonusData[b.key]}/{b.max}
+                          </span>
+                        </div>
+                        <input
+                          type="range" min={0} max={b.max} value={bonusData[b.key]}
+                          onChange={e => setBonusData(prev => ({ ...prev, [b.key]: parseInt(e.target.value) }))}
+                          className="w-full h-1.5 rounded-full accent-purple-600 cursor-pointer"
+                        />
                       </div>
+                    ))}
+                  </div>
 
-                      {/* Section D: Equity & Membership */}
-                      <div className="mb-4">
-                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
-                          Section D — Equity & Membership (max 10)
-                        </p>
-                        {EQUITY_BONUS_CRITERIA.map(b => (
-                          <div key={b.key} className="mb-2.5">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-gray-700">{b.label}</span>
-                              <span className="text-xs font-mono font-bold text-[#1a3a5c]">
-                                {bonusData[b.key]}/{b.max}
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min={0}
-                              max={b.max}
-                              value={bonusData[b.key]}
-                              onChange={e =>
-                                setBonusData(prev => ({ ...prev, [b.key]: parseInt(e.target.value) }))
-                              }
-                              className="w-full h-1.5 rounded-full accent-purple-600 cursor-pointer"
-                            />
-                          </div>
-                        ))}
+                  {/* Section D: Equity & Membership */}
+                  <div className="mb-4">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
+                      Section D — Equity & Membership (max 13)
+                    </p>
+                    {EQUITY_BONUS_CRITERIA.map(b => (
+                      <div key={b.key} className="mb-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-700">{b.label}</span>
+                          <span className="text-xs font-mono font-bold text-[#1a3a5c]">
+                            {bonusData[b.key]}/{b.max}
+                          </span>
+                        </div>
+                        <input
+                          type="range" min={0} max={b.max} value={bonusData[b.key]}
+                          onChange={e => setBonusData(prev => ({ ...prev, [b.key]: parseInt(e.target.value) }))}
+                          className="w-full h-1.5 rounded-full accent-purple-600 cursor-pointer"
+                        />
                       </div>
+                    ))}
+                  </div>
 
-                      {/* Bonus total */}
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-purple-700">Total Bonus</span>
-                        <span className="text-xl font-black text-purple-700">
-                          {bonusTotal}
-                          <span className="text-sm font-semibold opacity-60">/20</span>
-                        </span>
-                      </div>
+                  {/* Bonus total */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-purple-700">Total Bonus</span>
+                    <span className="text-xl font-black text-purple-700">
+                      {bonusTotal}<span className="text-sm font-semibold opacity-60">/23</span>
+                    </span>
+                  </div>
 
-                      <textarea
-                        rows={2}
-                        value={bonusData.note || ''}
-                        onChange={e => setBonusData(prev => ({ ...prev, note: e.target.value }))}
-                        placeholder="Note (optional)..."
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-none mb-3"
-                      />
-
-                      <button
-                        onClick={handleUpdateBonusPoints}
-                        disabled={bonusLoading}
-                        className="w-full px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        {bonusLoading ? 'Saving...' : 'Save Bonus Points'}
-                      </button>
-                    </>
-                  )}
+                  <textarea
+                    rows={2} value={bonusData.note || ''}
+                    onChange={e => setBonusData(prev => ({ ...prev, note: e.target.value }))}
+                    placeholder="Note (optional)..."
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-none mb-3"
+                  />
+                  <button
+                    onClick={handleUpdateBonusPoints}
+                    disabled={bonusLoading}
+                    className="w-full px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {bonusLoading ? 'Saving...' : 'Save Bonus Points'}
+                  </button>
                 </div>
               )}
 
@@ -704,8 +889,8 @@ export default function AbstractDetailPage() {
                   {reviewSummary && reviewSummary.reviewCount > 0 && (
                     <p className="text-sm text-gray-500 mt-1">
                       Avg. scientific merit:{' '}
-                      <strong>{Math.round(reviewSummary.averageScientificMerit)}/100</strong>
-                      {' '}— {getRecommendation(Math.round(reviewSummary.averageScientificMerit)).label}
+                      <strong>{Math.round(avgMerit)}/30</strong>
+                      {' '}— {getRecommendation(Math.round(avgMerit)).label}
                     </p>
                   )}
                 </div>

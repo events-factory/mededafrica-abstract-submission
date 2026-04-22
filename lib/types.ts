@@ -47,6 +47,32 @@ export interface Abstract {
 }
 
 export interface ScientificReviewPayload {
+  relevance: number
+  objectives: number
+  methodology: number
+  results: number
+  conclusions: number
+  writingQuality: number
+  comment?: string
+}
+
+export interface ScientificReview extends ScientificReviewPayload {
+  id: number
+  abstractId: number
+  reviewedBy: string
+  totalScore: number
+  recommendation: 'accept_oral' | 'accept_oral_minor_revisions' | 'accept_poster' | 'invite_resubmission' | 'reject'
+  createdAt: string
+}
+
+export interface ReviewsSummary {
+  reviews: ScientificReview[]
+  averageScientificMerit: number
+  reviewCount: number
+  meetsMinimumThreshold: boolean
+}
+
+export interface SCScorePayload {
   titleClarity: number
   structuredFormat: number
   relevance: number
@@ -57,22 +83,6 @@ export interface ScientificReviewPayload {
   contribution: number
   overallMerit: number
   comment?: string
-}
-
-export interface ScientificReview extends ScientificReviewPayload {
-  id: number
-  abstractId: number
-  reviewedBy: string
-  totalScore: number
-  recommendation: 'accept_oral' | 'accept_poster' | 'not_accepted'
-  createdAt: string
-}
-
-export interface ReviewsSummary {
-  reviews: ScientificReview[]
-  averageScientificMerit: number
-  reviewCount: number
-  meetsMinimumThreshold: boolean
 }
 
 export interface BonusPointsPayload {
