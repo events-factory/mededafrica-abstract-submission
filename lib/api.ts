@@ -11,6 +11,7 @@ import {
   ScientificReviewPayload,
   ScientificReview,
   ReviewsSummary,
+  SCScorePayload,
   BonusPointsPayload,
 } from './types';
 
@@ -271,6 +272,19 @@ export const abstractsApi = {
 
   getReviews: async (id: number) => {
     return apiRequest<ReviewsSummary>(`/abstracts/${id}/reviews`, {
+      method: 'GET',
+    });
+  },
+
+  submitSCScores: async (id: number, data: SCScorePayload) => {
+    return apiRequest<Abstract>(`/abstracts/${id}/sc-scores`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSCScore: async (id: number) => {
+    return apiRequest<{ scientificMeritTotal: number }>(`/abstracts/${id}/sc-scores`, {
       method: 'GET',
     });
   },
