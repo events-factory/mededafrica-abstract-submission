@@ -36,7 +36,9 @@ function ResetPasswordForm() {
     setLoading(true);
     try {
       const response = await authApi.resetPassword(token, newPassword);
-      if (response.message?.toLowerCase().includes('successfully') || response.data) {
+      const isSuccess = response.message?.toLowerCase().includes('successfully');
+
+      if (isSuccess) {
         setSuccess(true);
         setTimeout(() => router.push('/auth/login'), 2500);
       } else {
