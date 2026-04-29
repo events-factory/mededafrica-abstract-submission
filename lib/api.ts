@@ -278,14 +278,14 @@ export const abstractsApi = {
   },
 
   submitReview: async (id: number, data: ScientificReviewPayload) => {
-    return apiRequest<ScientificReview>(`/abstracts/${id}/reviews`, {
+    return apiRequest<ScientificReview>(`/abstracts/${id}/reviewer-scores`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   getReviews: async (id: number) => {
-    return apiRequest<ReviewsSummary>(`/abstracts/${id}/reviews`, {
+    return apiRequest<ReviewsSummary>(`/abstracts/${id}/reviewer-scores`, {
       method: 'GET',
     });
   },
