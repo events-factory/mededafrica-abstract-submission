@@ -9,7 +9,6 @@ import type { Abstract } from '@/lib/types';
 import AppLayout from '@/components/AppLayout';
 
 const PAGE_SIZE = 25;
-const REVIEW_FETCH_CONCURRENCY = 10;
 
 type ReviewStats = { avg: number; count: number };
 
@@ -48,33 +47,35 @@ export default function DashboardPage() {
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
       setError('');
-      fetchAllReviewStats(response.data);
     } else {
       setError('Failed to load abstracts');
     }
     setLoading(false);
   };
 
-  const fetchAllReviewStats = async (list: Abstract[]) => {
-    const stats = new Map<number, ReviewStats>();
-    for (let i = 0; i < list.length; i += REVIEW_FETCH_CONCURRENCY) {
-      const batch = list.slice(i, i + REVIEW_FETCH_CONCURRENCY);
-      await Promise.allSettled(
-        batch.map(async (a) => {
-          const res = await abstractsApi.getReviews(a.id);
-          if (res.data && res.data.reviewCount > 0) {
-            stats.set(a.id, {
+  // Fetch reviewer stats only for the abstracts visible on the current page.
+  // Results are cached in reviewStats so navigating back never re-fetches.
+  const fetchPageReviewStats = async (pageAbstracts: Abstract[]) => {
+    const uncached = pageAbstracts.filter((a) => !reviewStats.has(a.id));
+    if (uncached.length === 0) return;
+
+    await Promise.allSettled(
+      uncached.map(async (a) => {
+        const res = await abstractsApi.getReviews(a.id);
+        if (res.data && res.data.reviewCount > 0) {
+          setReviewStats((prev) => {
+            const next = new Map(prev);
+            next.set(a.id, {
               avg: Math.round(
                 res.data.reviews.reduce((s, r) => s + r.totalScore, 0) / res.data.reviews.length,
               ),
               count: res.data.reviewCount,
             });
-          }
-        }),
-      );
-      // Update incrementally so the UI populates as batches complete
-      setReviewStats(new Map(stats));
-    }
+            return next;
+          });
+        }
+      }),
+    );
   };
 
   const getStatusBadge = (status: Abstract['status']) => {
@@ -119,6 +120,26 @@ export default function DashboardPage() {
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   );
+
+  // Fetch reviewer stats for the current page whenever it changes.
+  useEffect(() => {
+    if (abstracts.length === 0) return;
+    const q2 = search.trim().toLowerCase();
+    const visible = abstracts
+      .filter((a) => {
+        const matchesStatus = filter === 'all' || a.status === filter;
+        const matchesSearch =
+          !q2 ||
+          a.title.toLowerCase().includes(q2) ||
+          a.presenterFullName.toLowerCase().includes(q2) ||
+          a.presenterEmail.toLowerCase().includes(q2) ||
+          a.subThemeCategory.toLowerCase().includes(q2);
+        return matchesStatus && matchesSearch;
+      })
+      .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    fetchPageReviewStats(visible);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abstracts, filter, search, currentPage]);
 
   const handleFilterChange = (newFilter: typeof filter) => {
     setFilter(newFilter);
