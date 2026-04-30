@@ -8,6 +8,11 @@ import { abstractsApi } from '@/lib/api';
 import type { Abstract } from '@/lib/types';
 import AppLayout from '@/components/AppLayout';
 
+const PAGE_SIZE = 25;
+const REVIEW_FETCH_CONCURRENCY = 10;
+
+type ReviewStats = { avg: number; count: number };
+
 export default function DashboardPage() {
   const router = useRouter();
   const [abstracts, setAbstracts] = useState<Abstract[]>([]);
@@ -16,6 +21,9 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<
     'all' | 'pending' | 'approved' | 'rejected' | 'more_info_requested'
   >('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [reviewStats, setReviewStats] = useState<Map<number, ReviewStats>>(new Map());
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -40,10 +48,33 @@ export default function DashboardPage() {
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
       setError('');
+      fetchAllReviewStats(response.data);
     } else {
       setError('Failed to load abstracts');
     }
     setLoading(false);
+  };
+
+  const fetchAllReviewStats = async (list: Abstract[]) => {
+    const stats = new Map<number, ReviewStats>();
+    for (let i = 0; i < list.length; i += REVIEW_FETCH_CONCURRENCY) {
+      const batch = list.slice(i, i + REVIEW_FETCH_CONCURRENCY);
+      await Promise.allSettled(
+        batch.map(async (a) => {
+          const res = await abstractsApi.getReviews(a.id);
+          if (res.data && res.data.reviewCount > 0) {
+            stats.set(a.id, {
+              avg: Math.round(
+                res.data.reviews.reduce((s, r) => s + r.totalScore, 0) / res.data.reviews.length,
+              ),
+              count: res.data.reviewCount,
+            });
+          }
+        }),
+      );
+      // Update incrementally so the UI populates as batches complete
+      setReviewStats(new Map(stats));
+    }
   };
 
   const getStatusBadge = (status: Abstract['status']) => {
@@ -71,10 +102,33 @@ export default function DashboardPage() {
   };
 
   const safeAbstracts = abstracts || [];
-  const filteredAbstracts =
-    filter === 'all'
-      ? safeAbstracts
-      : safeAbstracts.filter((abstract) => abstract.status === filter);
+  const q = search.trim().toLowerCase();
+  const filteredAbstracts = safeAbstracts.filter((a) => {
+    const matchesStatus = filter === 'all' || a.status === filter;
+    const matchesSearch =
+      !q ||
+      a.title.toLowerCase().includes(q) ||
+      a.presenterFullName.toLowerCase().includes(q) ||
+      a.presenterEmail.toLowerCase().includes(q) ||
+      a.subThemeCategory.toLowerCase().includes(q);
+    return matchesStatus && matchesSearch;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredAbstracts.length / PAGE_SIZE));
+  const pagedAbstracts = filteredAbstracts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  const handleFilterChange = (newFilter: typeof filter) => {
+    setFilter(newFilter);
+    setCurrentPage(1);
+  };
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
 
   const exportToExcel = () => {
     const rows = filteredAbstracts.map((a) => ({
@@ -128,7 +182,7 @@ export default function DashboardPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setFilter('all')}
+              onClick={() => handleFilterChange('all')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'all'
                   ? 'bg-primary-500 text-white'
@@ -138,7 +192,7 @@ export default function DashboardPage() {
               All ({safeAbstracts.length})
             </button>
             <button
-              onClick={() => setFilter('pending')}
+              onClick={() => handleFilterChange('pending')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'pending'
                   ? 'bg-yellow-500 text-white'
@@ -148,7 +202,7 @@ export default function DashboardPage() {
               Pending ({safeAbstracts.filter((a) => a.status === 'pending').length})
             </button>
             <button
-              onClick={() => setFilter('approved')}
+              onClick={() => handleFilterChange('approved')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'approved'
                   ? 'bg-green-500 text-white'
@@ -159,7 +213,7 @@ export default function DashboardPage() {
               {safeAbstracts.filter((a) => a.status === 'approved').length})
             </button>
             <button
-              onClick={() => setFilter('rejected')}
+              onClick={() => handleFilterChange('rejected')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'rejected'
                   ? 'bg-red-500 text-white'
@@ -170,7 +224,7 @@ export default function DashboardPage() {
               {safeAbstracts.filter((a) => a.status === 'rejected').length})
             </button>
             <button
-              onClick={() => setFilter('more_info_requested')}
+              onClick={() => handleFilterChange('more_info_requested')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'more_info_requested'
                   ? 'bg-blue-500 text-white'
@@ -192,6 +246,35 @@ export default function DashboardPage() {
             Export Excel ({filteredAbstracts.length})
           </button>
           </div>
+        </div>
+
+        {/* Search */}
+        <div className="bg-white rounded-xl shadow-sm px-4 py-3 mb-4">
+          <div className="relative max-w-md">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by title, presenter, or category…"
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+            />
+            {search && (
+              <button
+                onClick={() => handleSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {q && (
+            <p className="text-xs text-gray-500 mt-2">
+              {filteredAbstracts.length} result{filteredAbstracts.length !== 1 ? 's' : ''} for &ldquo;{search}&rdquo;
+            </p>
+          )}
         </div>
 
         {/* Abstracts Table */}
@@ -235,7 +318,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredAbstracts.map((abstract) => (
+                  {pagedAbstracts.map((abstract) => (
                     <tr key={abstract.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
@@ -259,11 +342,29 @@ export default function DashboardPage() {
                         {getStatusBadge(abstract.status)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {abstract.points != null ? (
-                          <span className="font-medium text-primary-600">{abstract.points}</span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        {(() => {
+                          const rs = reviewStats.get(abstract.id);
+                          const hasReviewer = rs && rs.count > 0;
+                          const hasSC = abstract.points != null && abstract.points > 0;
+                          const hasBonus = abstract.equityPoints != null && abstract.equityPoints > 0;
+                          if (!hasReviewer && !hasSC && !hasBonus) return <span className="text-gray-400">-</span>;
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              {hasReviewer && (
+                                <span className="font-semibold text-primary-600">
+                                  {rs!.avg}<span className="font-normal text-gray-400">/30</span>
+                                  <span className="text-xs text-gray-400 ml-1">({rs!.count})</span>
+                                </span>
+                              )}
+                              {hasSC && (
+                                <span className="text-xs text-blue-600 font-medium">SC: {abstract.points}/100</span>
+                              )}
+                              {hasBonus && (
+                                <span className="text-xs text-purple-600 font-medium">+{abstract.equityPoints} bonus</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(abstract.createdAt).toLocaleDateString()}
@@ -280,6 +381,68 @@ export default function DashboardPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* Pagination */}
+          {!loading && !error && filteredAbstracts.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredAbstracts.length)} of {filteredAbstracts.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  «
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  ‹ Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                  .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && (arr[idx - 1] as number) + 1 < p) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === '…' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-sm">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setCurrentPage(item as number)}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          currentPage === item
+                            ? 'bg-primary-500 text-white'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Next ›
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-2 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  »
+                </button>
+              </div>
             </div>
           )}
         </div>
