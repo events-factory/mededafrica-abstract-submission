@@ -216,32 +216,28 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {(user.isStaff || user.isSuperAdmin) ? (
+          {user.isSuperAdmin ? (
             <>
               <NavLink href="/dashboard" icon={DashboardIcon} label="Abstracts" />
-              {/* <NavLink href="/participants" icon={ParticipantsIcon} label="Participants" /> */}
               <NavLink href="/delegates" icon={DelegatesIcon} label="Participants" />
 
-              {/* Super Admin Only Section */}
-              {user.isSuperAdmin && (
-                <>
-                  <div className={`pt-4 pb-2 ${collapsed ? 'hidden' : ''}`}>
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">
-                      Administration
-                    </span>
-                  </div>
-                  <NavLink href="/manage-reviewers" icon={ManageReviewersIcon} label="Manage Reviewers" />
-                </>
-              )}
+              <div className={`pt-4 pb-2 ${collapsed ? 'hidden' : ''}`}>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">
+                  Administration
+                </span>
+              </div>
+              <NavLink href="/manage-reviewers" icon={ManageReviewersIcon} label="Manage Reviewers" />
 
               <div className={`pt-4 pb-2 ${collapsed ? 'hidden' : ''}`}>
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4">
                   Invitations
                 </span>
               </div>
-
               <NavLink href="/invite-staff" icon={InviteReviewerIcon} label="Invite Reviewer" />
-              {/* <NavLink href="/invite-delegates" icon={InviteDelegateIcon} label="Invite Delegate" /> */}
+            </>
+          ) : user.isStaff ? (
+            <>
+              <NavLink href="/dashboard" icon={DashboardIcon} label="Abstracts" />
             </>
           ) : (
             <>
@@ -265,9 +261,9 @@ export default function Sidebar() {
           </div>
 
           <NavLink
-            href="https://www.mededafrica.org/abstract-submission"
+            href={user.isStaff || user.isSuperAdmin ? '/reviewer-guidelines.pdf' : 'https://www.mededafrica.org/abstract-submission'}
             icon={GuidelinesIcon}
-            label="Abstract Guidelines"
+            label={user.isStaff || user.isSuperAdmin ? 'Reviewer Guidelines' : 'Abstract Guidelines'}
             external
           />
         </nav>
