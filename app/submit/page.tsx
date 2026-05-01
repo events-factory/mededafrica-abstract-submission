@@ -57,11 +57,19 @@ const COUNTRIES = [
   'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
 ]
 
+// Deadline: April 30 2026 at 23:59 CAT (UTC+2 → UTC 21:59)
+const SUBMISSION_DEADLINE = new Date('2026-04-30T21:59:00Z')
+
+function isSubmissionClosed() {
+  return new Date() >= SUBMISSION_DEADLINE
+}
+
 export default function SubmitAbstractPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [submissionClosed, setSubmissionClosed] = useState(isSubmissionClosed)
 
   const [formData, setFormData] = useState<{
     subThemeCategory: string
@@ -100,6 +108,18 @@ export default function SubmitAbstractPage() {
       router.push('/auth/login?role=submitter')
     }
   }, [router])
+
+  // Auto-close at deadline
+  useEffect(() => {
+    if (submissionClosed) return
+    const msUntilDeadline = SUBMISSION_DEADLINE.getTime() - Date.now()
+    if (msUntilDeadline <= 0) {
+      setSubmissionClosed(true)
+      return
+    }
+    const timer = setTimeout(() => setSubmissionClosed(true), msUntilDeadline)
+    return () => clearTimeout(timer)
+  }, [submissionClosed])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -200,7 +220,26 @@ export default function SubmitAbstractPage() {
             </p>
           </div>
 
-        {/* Form */}
+          {/* Submission Closed Banner */}
+          {submissionClosed && (
+            <div className="bg-white rounded-lg shadow-md p-10 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Abstract Submissions Are Closed</h2>
+              <p className="text-gray-600 max-w-md mx-auto">
+                The submission window has ended. Thank you for your interest in the MedEdAfrica Conference.
+                If you believe this is an error, please contact the organizing committee.
+              </p>
+            </div>
+          )}
+
+        {/* Form — hidden once submissions close */}
+        {!submissionClosed && (
         <div className="bg-white rounded-lg shadow-md p-8">
           {error && (
             <div className="mb-6 p-4 bg-accent-red/10 border border-accent-red text-accent-red rounded-lg">
@@ -497,6 +536,7 @@ export default function SubmitAbstractPage() {
             </div>
           </form>
         </div>
+        )}
         </div>
       </div>
       <Footer />
