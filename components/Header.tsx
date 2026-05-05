@@ -79,7 +79,7 @@ export default function Header() {
               <>
                 {/* Logged in navigation */}
                 <nav className="hidden md:flex items-center gap-2">
-                  {user.isStaff ? (
+                  {user.isSuperAdmin || user.isStaff ? (
                     <>
                       <Link
                         href="/dashboard"
@@ -220,7 +220,7 @@ export default function Header() {
               >
                 Guidelines
               </a>
-              {user.isStaff ? (
+              {user.isSuperAdmin || user.isStaff ? (
                 <>
                   <Link
                     href="/dashboard"
