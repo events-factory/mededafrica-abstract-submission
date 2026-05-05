@@ -1,8 +1,25 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import type { User } from '@/lib/types';
 
 export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch {
+        setUser(null);
+      }
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-50 to-primary-100">
       <Header />
@@ -55,7 +72,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Login Card */}
+          {/* Login / Dashboard Card */}
           <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
             <div className="text-center mb-6">
               <div className="w-20 h-20 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -73,24 +90,54 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome</h2>
-              <p className="text-gray-600 mb-6">
-                Sign in to access the abstract management system
-              </p>
+              {user ? (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                    Welcome back, {user.firstName}!
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    {user.isSuperAdmin
+                      ? 'Manage the conference platform'
+                      : user.isStaff
+                      ? 'Manage abstracts and participants'
+                      : 'Continue managing your abstracts and submissions'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome</h2>
+                  <p className="text-gray-600 mb-6">
+                    Sign in to access the abstract management system
+                  </p>
+                </>
+              )}
             </div>
             <div className="space-y-3">
-              <Link
-                href="/auth/login"
-                className="block w-full bg-primary-500 text-white text-center py-3 rounded-lg hover:bg-primary-600 transition-colors font-semibold"
-              >
-                Login
-              </Link>
-              {/* <Link
-                href="/auth/register"
-                className="block w-full border-2 border-primary-500 text-primary-500 text-center py-3 rounded-lg hover:bg-primary-50 transition-colors font-semibold"
-              >
-                Create Account
-              </Link> */}
+              {user ? (
+                <>
+                  <Link
+                    href={user.isSuperAdmin || user.isStaff ? '/dashboard' : '/my-submissions'}
+                    className="block w-full bg-primary-500 text-white text-center py-3 rounded-lg hover:bg-primary-600 transition-colors font-semibold"
+                  >
+                    {user.isSuperAdmin || user.isStaff ? 'Go to Dashboard' : 'My Submissions'}
+                  </Link>
+                  {!user.isSuperAdmin && !user.isStaff && (
+                    <Link
+                      href="/submit"
+                      className="block w-full border-2 border-primary-500 text-primary-500 text-center py-3 rounded-lg hover:bg-primary-50 transition-colors font-semibold"
+                    >
+                      Submit Abstract
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <Link
+                  href="/auth/login"
+                  className="block w-full bg-primary-500 text-white text-center py-3 rounded-lg hover:bg-primary-600 transition-colors font-semibold"
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>
