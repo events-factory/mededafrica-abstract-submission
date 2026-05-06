@@ -21,8 +21,15 @@ export default function DashboardPage() {
     'all' | 'pending' | 'approved' | 'rejected' | 'more_info_requested'
   >('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalAbstracts, setTotalAbstracts] = useState(0); // server total, used for pagination display
   const [reviewStats, setReviewStats] = useState<Map<number, ReviewStats>>(new Map());
   const [search, setSearch] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [statusCounts, setStatusCounts] = useState({ pending: 0, approved: 0, rejected: 0, more_info_requested: 0 });
+  const [exportLoading, setExportLoading] = useState(false);
+  const [allAbstracts, setAllAbstracts] = useState<Abstract[]>([]);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -37,21 +44,50 @@ export default function DashboardPage() {
       return;
     }
 
-    fetchAbstracts();
+    setIsSuperAdmin(!!userData.isSuperAdmin);
   }, [router]);
 
-  const fetchAbstracts = async () => {
+  const fetchAbstracts = async (page: number) => {
     setLoading(true);
-    const response = await abstractsApi.getAll();
+    const response = await abstractsApi.getAll(page, PAGE_SIZE);
 
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
+      if (response.pagination) {
+        setTotalPages(response.pagination.totalPages);
+        setTotalAbstracts(response.pagination.total);
+      }
       setError('');
     } else {
       setError('Failed to load abstracts');
     }
     setLoading(false);
   };
+
+  // Fetch all abstracts (high limit) to power search and status counts.
+  const fetchAllAbstracts = async () => {
+    const res = await abstractsApi.getAll(1, 1000);
+    if (res.data && Array.isArray(res.data)) {
+      const all = res.data;
+      setAllAbstracts(all);
+      setStatusCounts({
+        pending: all.filter((a) => a.status === 'pending').length,
+        approved: all.filter((a) => a.status === 'approved').length,
+        rejected: all.filter((a) => a.status === 'rejected').length,
+        more_info_requested: all.filter((a) => a.status === 'more_info_requested').length,
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchAbstracts(currentPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
+  useEffect(() => {
+    fetchAllAbstracts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch reviewer stats only for the abstracts visible on the current page.
   // Results are cached in reviewStats so navigating back never re-fetches.
@@ -102,9 +138,10 @@ export default function DashboardPage() {
     );
   };
 
-  const safeAbstracts = abstracts || [];
   const q = search.trim().toLowerCase();
-  const filteredAbstracts = safeAbstracts.filter((a) => {
+  // When searching, filter across all abstracts; otherwise show the current server page.
+  const sourceAbstracts = q ? allAbstracts : (abstracts || []);
+  const filteredAbstracts = sourceAbstracts.filter((a) => {
     const matchesStatus = filter === 'all' || a.status === filter;
     const matchesSearch =
       !q ||
@@ -115,31 +152,12 @@ export default function DashboardPage() {
     return matchesStatus && matchesSearch;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredAbstracts.length / PAGE_SIZE));
-  const pagedAbstracts = filteredAbstracts.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
-
-  // Fetch reviewer stats for the current page whenever it changes.
+  // Fetch reviewer stats whenever the current page of abstracts changes.
   useEffect(() => {
-    if (abstracts.length === 0) return;
-    const q2 = search.trim().toLowerCase();
-    const visible = abstracts
-      .filter((a) => {
-        const matchesStatus = filter === 'all' || a.status === filter;
-        const matchesSearch =
-          !q2 ||
-          a.title.toLowerCase().includes(q2) ||
-          a.presenterFullName.toLowerCase().includes(q2) ||
-          a.presenterEmail.toLowerCase().includes(q2) ||
-          a.subThemeCategory.toLowerCase().includes(q2);
-        return matchesStatus && matchesSearch;
-      })
-      .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-    fetchPageReviewStats(visible);
+    if (filteredAbstracts.length === 0) return;
+    fetchPageReviewStats(filteredAbstracts);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abstracts, filter, search, currentPage]);
+  }, [abstracts, filter, search]);
 
   const handleFilterChange = (newFilter: typeof filter) => {
     setFilter(newFilter);
@@ -151,8 +169,25 @@ export default function DashboardPage() {
     setCurrentPage(1);
   };
 
-  const exportToExcel = () => {
-    const rows = filteredAbstracts.map((a) => ({
+  const handleDelete = async (abstract: Abstract) => {
+    if (!confirm(`Delete "${abstract.title}"? This cannot be undone.`)) return;
+    setDeletingId(abstract.id);
+    const response = await abstractsApi.delete(abstract.id);
+    setDeletingId(null);
+    if (response.message?.toLowerCase().includes('success') || response.message?.toLowerCase().includes('deleted')) {
+      setAbstracts((prev) => prev.filter((a) => a.id !== abstract.id));
+    } else {
+      alert(response.message || 'Failed to delete abstract');
+    }
+  };
+
+  const exportToExcel = async () => {
+    setExportLoading(true);
+    const res = await abstractsApi.getAll(1, 1000);
+    setExportLoading(false);
+
+    const all = res.data && Array.isArray(res.data) ? res.data : [];
+    const rows = all.map((a) => ({
       ID: a.id,
       Title: a.title,
       'Presenter Name': a.presenterFullName,
@@ -176,7 +211,7 @@ export default function DashboardPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Abstracts');
 
-    const filename = `abstracts-${filter}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const filename = `abstracts-${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, filename);
   };
 
@@ -210,7 +245,7 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              All ({safeAbstracts.length})
+              All ({totalAbstracts})
             </button>
             <button
               onClick={() => handleFilterChange('pending')}
@@ -220,7 +255,7 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Pending ({safeAbstracts.filter((a) => a.status === 'pending').length})
+              Pending ({statusCounts.pending})
             </button>
             <button
               onClick={() => handleFilterChange('approved')}
@@ -230,8 +265,7 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Approved (
-              {safeAbstracts.filter((a) => a.status === 'approved').length})
+              Approved ({statusCounts.approved})
             </button>
             <button
               onClick={() => handleFilterChange('rejected')}
@@ -241,8 +275,7 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Rejected (
-              {safeAbstracts.filter((a) => a.status === 'rejected').length})
+              Rejected ({statusCounts.rejected})
             </button>
             <button
               onClick={() => handleFilterChange('more_info_requested')}
@@ -252,19 +285,18 @@ export default function DashboardPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              More Info Requested (
-              {safeAbstracts.filter((a) => a.status === 'more_info_requested').length})
+              More Info Requested ({statusCounts.more_info_requested})
             </button>
           </div>
           <button
             onClick={exportToExcel}
-            disabled={filteredAbstracts.length === 0}
+            disabled={exportLoading || totalAbstracts === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Export Excel ({filteredAbstracts.length})
+            {exportLoading ? 'Exporting…' : `Export Excel (${totalAbstracts})`}
           </button>
           </div>
         </div>
@@ -339,7 +371,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {pagedAbstracts.map((abstract) => (
+                  {filteredAbstracts.map((abstract: Abstract) => (
                     <tr key={abstract.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
@@ -391,12 +423,23 @@ export default function DashboardPage() {
                         {new Date(abstract.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <Link
-                          href={`/abstracts/${abstract.id}`}
-                          className="inline-block px-4 py-2 bg-primary-light text-white text-sm rounded-lg hover:bg-[#3da0d4] transition-colors font-medium"
-                        >
-                          Review
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/abstracts/${abstract.id}`}
+                            className="inline-block px-4 py-2 bg-primary-light text-white text-sm rounded-lg hover:bg-[#3da0d4] transition-colors font-medium"
+                          >
+                            Review
+                          </Link>
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => handleDelete(abstract)}
+                              disabled={deletingId === abstract.id}
+                              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {deletingId === abstract.id ? '…' : 'Delete'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -405,10 +448,10 @@ export default function DashboardPage() {
             </div>
           )}
           {/* Pagination */}
-          {!loading && !error && filteredAbstracts.length > 0 && (
+          {!loading && !error && totalAbstracts > 0 && !q && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
               <p className="text-sm text-gray-500">
-                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredAbstracts.length)} of {filteredAbstracts.length}
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalAbstracts)} of {totalAbstracts}
               </p>
               <div className="flex items-center gap-1">
                 <button
