@@ -53,6 +53,7 @@ async function apiRequest<T>(
     return {
       message: data.message,
       data: data.data as T,
+      pagination: data.pagination,
     };
   } catch (error) {
     return {
@@ -219,8 +220,8 @@ export const abstractsApi = {
     });
   },
 
-  getAll: async () => {
-    return apiRequest<Abstract[]>('/abstracts', {
+  getAll: async (page = 1, limit = 25) => {
+    return apiRequest<Abstract[]>(`/abstracts?page=${page}&limit=${limit}`, {
       method: 'GET',
     });
   },
