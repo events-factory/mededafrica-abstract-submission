@@ -121,9 +121,17 @@ export interface AuthResponse {
   }
 }
 
+export interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
 export interface ApiResponse<T> {
   message: string
   data: T
+  pagination?: Pagination
 }
 
 export interface ErrorResponse {
