@@ -39,6 +39,26 @@ export async function DELETE(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await params
+
+  // Only superadmins may delete abstracts
+  if (path[0] === 'abstracts' && path.length === 2) {
+    const authorization = request.headers.get('authorization')
+    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null
+
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+    }
+
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+      if (!payload.isSuperAdmin) {
+        return NextResponse.json({ message: 'Forbidden: only superadmins can delete abstracts' }, { status: 403 })
+      }
+    } catch {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+    }
+  }
+
   return proxyRequest(request, path, 'DELETE')
 }
 
@@ -49,7 +69,8 @@ async function proxyRequest(
 ) {
   try {
     const path = pathSegments.join('/')
-    const url = `${API_BASE_URL}/${path}`
+    const search = request.nextUrl.search
+    const url = `${API_BASE_URL}/${path}${search}`
 
     // Get authorization header
     const authorization = request.headers.get('authorization')
