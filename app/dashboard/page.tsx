@@ -10,7 +10,38 @@ import AppLayout from '@/components/AppLayout';
 
 const PAGE_SIZE = 25;
 
-type ReviewStats = { avg: number; count: number };
+// Map a Phase 1 score (0-30) to a tier, for colour-coding badges and chips.
+// Thresholds mirror the backend `getReviewerRecommendation` boundaries.
+function scoreTier(score: number): 'excellent' | 'good' | 'fair' | 'weak' | 'poor' {
+  if (score >= 25) return 'excellent';
+  if (score >= 20) return 'good';
+  if (score >= 15) return 'fair';
+  if (score >= 10) return 'weak';
+  return 'poor';
+}
+
+const TIER_BADGE: Record<ReturnType<typeof scoreTier>, string> = {
+  excellent: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  good: 'bg-green-50 text-green-700 border-green-200',
+  fair: 'bg-amber-50 text-amber-700 border-amber-200',
+  weak: 'bg-orange-50 text-orange-700 border-orange-200',
+  poor: 'bg-red-50 text-red-700 border-red-200',
+};
+
+const TIER_CHIP: Record<ReturnType<typeof scoreTier>, string> = {
+  excellent: 'bg-emerald-100 text-emerald-800',
+  good: 'bg-green-100 text-green-800',
+  fair: 'bg-amber-100 text-amber-800',
+  weak: 'bg-orange-100 text-orange-800',
+  poor: 'bg-red-100 text-red-800',
+};
+
+function reviewerInitials(email: string): string {
+  const local = email.split('@')[0] ?? email;
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return local.slice(0, 2).toUpperCase();
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -23,7 +54,6 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAbstracts, setTotalAbstracts] = useState(0); // server total, used for pagination display
-  const [reviewStats, setReviewStats] = useState<Map<number, ReviewStats>>(new Map());
   const [search, setSearch] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -89,31 +119,6 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch reviewer stats only for the abstracts visible on the current page.
-  // Results are cached in reviewStats so navigating back never re-fetches.
-  const fetchPageReviewStats = async (pageAbstracts: Abstract[]) => {
-    const uncached = pageAbstracts.filter((a) => !reviewStats.has(a.id));
-    if (uncached.length === 0) return;
-
-    await Promise.allSettled(
-      uncached.map(async (a) => {
-        const res = await abstractsApi.getReviews(a.id);
-        if (res.data && res.data.reviewCount > 0) {
-          setReviewStats((prev) => {
-            const next = new Map(prev);
-            next.set(a.id, {
-              avg: Math.round(
-                res.data.reviews.reduce((s, r) => s + r.totalScore, 0) / res.data.reviews.length,
-              ),
-              count: res.data.reviewCount,
-            });
-            return next;
-          });
-        }
-      }),
-    );
-  };
-
   const getStatusBadge = (status: Abstract['status']) => {
     const badges = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -151,13 +156,6 @@ export default function DashboardPage() {
       a.subThemeCategory.toLowerCase().includes(q);
     return matchesStatus && matchesSearch;
   });
-
-  // Fetch reviewer stats whenever the current page of abstracts changes.
-  useEffect(() => {
-    if (filteredAbstracts.length === 0) return;
-    fetchPageReviewStats(filteredAbstracts);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abstracts, filter, search]);
 
   const handleFilterChange = (newFilter: typeof filter) => {
     setFilter(newFilter);
@@ -347,25 +345,25 @@ export default function DashboardPage() {
               <table className="w-full">
                 <thead className="bg-primary-500 text-white">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Title
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Presenter
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Category
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Points
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Submitted
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                    <th className="px-3 py-2 text-left text-xs font-semibold">
                       Actions
                     </th>
                   </tr>
@@ -373,60 +371,100 @@ export default function DashboardPage() {
                 <tbody className="divide-y divide-gray-200">
                   {filteredAbstracts.map((abstract: Abstract) => (
                     <tr key={abstract.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                      <td className="px-3 py-2.5">
+                        <div className="text-xs font-medium text-gray-900 max-w-[220px] truncate">
                           {abstract.title}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
+                      <td className="px-3 py-2.5">
+                        <div className="text-xs text-gray-900">
                           {abstract.presenterFullName}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-[11px] text-gray-500">
                           {abstract.presenterEmail}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-xs text-gray-600 max-w-xs truncate">
+                      <td className="px-3 py-2.5">
+                        <div className="text-[11px] text-gray-600 max-w-[200px] truncate">
                           {abstract.subThemeCategory}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-2.5">
                         {getStatusBadge(abstract.status)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-3 py-2.5 text-xs text-gray-600">
                         {(() => {
-                          const rs = reviewStats.get(abstract.id);
-                          const hasReviewer = rs && rs.count > 0;
+                          // Super admin: backend embeds averageScore + reviewCount per row.
+                          // Staff reviewer: backend embeds myScore (their own totalScore).
+                          const adminAvg = abstract.averageScore;
+                          const adminCount = abstract.reviewCount ?? 0;
+                          const myScore = abstract.myScore;
+                          const hasReviewer = isSuperAdmin
+                            ? adminAvg != null && adminCount > 0
+                            : myScore != null;
                           const hasSC = abstract.points != null && abstract.points > 0;
                           const hasBonus = abstract.equityPoints != null && abstract.equityPoints > 0;
                           if (!hasReviewer && !hasSC && !hasBonus) return <span className="text-gray-400">-</span>;
                           return (
-                            <div className="flex flex-col gap-0.5">
-                              {hasReviewer && (
-                                <span className="font-semibold text-primary-600">
-                                  {rs!.avg}<span className="font-normal text-gray-400">/30</span>
-                                  <span className="text-xs text-gray-400 ml-1">({rs!.count})</span>
-                                </span>
+                            <div className="flex flex-col gap-1 min-w-[120px]">
+                              {hasReviewer && isSuperAdmin && (
+                                <>
+                                  <div
+                                    className={`inline-flex items-baseline gap-1 px-2 py-0.5 rounded-md border ${TIER_BADGE[scoreTier(adminAvg!)]} w-fit`}
+                                  >
+                                    <span className="text-xs font-bold leading-none">{adminAvg!.toFixed(1)}</span>
+                                    <span className="text-[10px] opacity-70">/30</span>
+                                    <span className="text-[9px] opacity-60 ml-0.5">·{adminCount}</span>
+                                  </div>
+                                  {abstract.reviews && abstract.reviews.length > 0 && (
+                                    <div className="flex flex-wrap gap-0.5">
+                                      {abstract.reviews.map((r, idx) => (
+                                        <span
+                                          key={`${r.reviewerEmail}-${idx}`}
+                                          title={`${r.reviewerEmail} — ${r.recommendation.replace(/_/g, ' ')}`}
+                                          className={`inline-flex items-center gap-0.5 pl-0.5 pr-1 py-0 rounded-full text-[10px] font-medium ${TIER_CHIP[scoreTier(r.totalScore)]}`}
+                                        >
+                                          <span className="w-3.5 h-3.5 rounded-full bg-white/70 flex items-center justify-center text-[7px] font-bold tracking-tight">
+                                            {reviewerInitials(r.reviewerEmail)}
+                                          </span>
+                                          {r.totalScore}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {hasReviewer && !isSuperAdmin && (
+                                <div
+                                  className={`inline-flex items-baseline gap-1 px-2 py-0.5 rounded-md border ${TIER_BADGE[scoreTier(myScore!)]} w-fit`}
+                                >
+                                  <span className="text-xs font-bold leading-none">{myScore}</span>
+                                  <span className="text-[10px] opacity-70">/30</span>
+                                </div>
                               )}
                               {hasSC && (
-                                <span className="text-xs text-blue-600 font-medium">SC: {abstract.points}/100</span>
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-medium w-fit">
+                                  SC <span className="font-bold">{abstract.points}</span>
+                                  <span className="opacity-70">/100</span>
+                                </span>
                               )}
                               {hasBonus && (
-                                <span className="text-xs text-purple-600 font-medium">+{abstract.equityPoints} bonus</span>
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-medium w-fit">
+                                  +{abstract.equityPoints} bonus
+                                </span>
                               )}
                             </div>
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">
                         {new Date(abstract.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5">
                           <Link
                             href={`/abstracts/${abstract.id}`}
-                            className="inline-block px-4 py-2 bg-primary-light text-white text-sm rounded-lg hover:bg-[#3da0d4] transition-colors font-medium"
+                            className="inline-block px-2.5 py-1 bg-primary-light text-white text-xs rounded-md hover:bg-[#3da0d4] transition-colors font-medium"
                           >
                             Review
                           </Link>
@@ -434,7 +472,7 @@ export default function DashboardPage() {
                             <button
                               onClick={() => handleDelete(abstract)}
                               disabled={deletingId === abstract.id}
-                              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="px-2.5 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {deletingId === abstract.id ? '…' : 'Delete'}
                             </button>

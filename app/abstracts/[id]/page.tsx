@@ -434,9 +434,12 @@ export default function AbstractDetailPage() {
                   {getStatusBadge(abstract.status)}
                   {reviewSummary && reviewSummary.reviewCount > 0 && (
                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border ${meetsThreshold ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                      Reviewers:&nbsp;<span className="font-black">{Math.round(avgMerit)}</span>
+                      {isSuperAdmin ? 'Reviewers' : 'Your score'}:&nbsp;
+                      <span className="font-black">{Math.round(avgMerit)}</span>
                       <span className="font-normal opacity-60">/30</span>
-                      <span className="text-xs opacity-60 ml-1">({reviewSummary.reviewCount})</span>
+                      {isSuperAdmin && (
+                        <span className="text-xs opacity-60 ml-1">({reviewSummary.reviewCount})</span>
+                      )}
                     </span>
                   )}
                   {scTotalDisplay != null && scTotalDisplay > 0 && (

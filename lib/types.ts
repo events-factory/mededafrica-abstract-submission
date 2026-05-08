@@ -44,6 +44,11 @@ export interface Abstract {
   reviewedAt?: string
   createdAt: string
   updatedAt: string
+  // Score fields embedded in list responses
+  myScore?: number | null // staff: their own Phase 1 totalScore for this abstract
+  averageScore?: number | null // super admin: average across all Phase 1 reviews
+  reviewCount?: number // super admin: number of Phase 1 reviews
+  reviews?: { reviewerEmail: string; totalScore: number; recommendation: string }[]
 }
 
 export interface ScientificReviewPayload {
