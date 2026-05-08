@@ -193,12 +193,13 @@ export const authApi = {
   },
 
   // Staff Management APIs (Super Admin only)
-  getAllStaff: async (page?: number, limit?: number) => {
-    const qs =
-      page !== undefined && limit !== undefined
-        ? `?page=${page}&limit=${limit}`
-        : '';
-    return apiRequest<StaffMember[]>(`/auth/staff${qs}`, {
+  getAllStaff: async (page?: number, limit?: number, search?: string) => {
+    const params = new URLSearchParams();
+    if (page !== undefined) params.set('page', String(page));
+    if (limit !== undefined) params.set('limit', String(limit));
+    if (search && search.trim()) params.set('search', search.trim());
+    const qs = params.toString();
+    return apiRequest<StaffMember[]>(`/auth/staff${qs ? `?${qs}` : ''}`, {
       method: 'GET',
     });
   },
