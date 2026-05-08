@@ -61,6 +61,8 @@ export default function MySubmissionsPage() {
         return 'bg-accent-red/10 text-accent-red border-accent-red'
       case 'more_info_requested':
         return 'bg-yellow-50 text-yellow-700 border-yellow-300'
+      case 'under_review':
+        return 'bg-indigo-50 text-indigo-700 border-indigo-300'
       default:
         return 'bg-gray-100 text-gray-700 border-gray-300'
     }
@@ -74,6 +76,8 @@ export default function MySubmissionsPage() {
         return 'Rejected'
       case 'more_info_requested':
         return 'More Info Requested'
+      case 'under_review':
+        return 'Under Review'
       default:
         return 'Pending Review'
     }

@@ -148,13 +148,14 @@ export const authApi = {
   },
 
   // Staff Management APIs (Super Admin only)
-  getAllStaff: async () => {
-    console.log('Fetching all staff members...');
-    const result = await apiRequest<StaffMember[]>('/auth/staff', {
+  getAllStaff: async (page?: number, limit?: number) => {
+    const qs =
+      page !== undefined && limit !== undefined
+        ? `?page=${page}&limit=${limit}`
+        : '';
+    return apiRequest<StaffMember[]>(`/auth/staff${qs}`, {
       method: 'GET',
     });
-    console.log('getAllStaff result:', result);
-    return result;
   },
 
   getStaffTopics: async (userId: number) => {
@@ -308,6 +309,44 @@ export const abstractsApi = {
     return apiRequest<Abstract>(`/abstracts/${id}/bonus-points`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  },
+
+  refreshReviewerQueue: async (userId: number) => {
+    return apiRequest<{
+      removed: number;
+      added: number;
+      displaced: number;
+      queueSize: number;
+      capacity: number;
+    }>(`/abstracts/reviewer-queue/${userId}/refresh`, {
+      method: 'POST',
+    });
+  },
+
+  getReviewerQueueStats: async () => {
+    return apiRequest<Record<string, { assigned: number; reviewed: number }>>(
+      '/abstracts/reviewer-queue/stats',
+      { method: 'GET' },
+    );
+  },
+
+  getReviewerQueueAbstracts: async (userId: number, page = 1, limit = 20) => {
+    return apiRequest<{
+      queueSize: number;
+      capacity: number;
+      abstracts: Array<{
+        id: number;
+        title: string;
+        presenterFullName: string;
+        subThemeCategory: string;
+        status: string;
+        reviewed: boolean;
+        reviewedAt: string | null;
+        totalScore: number | null;
+      }>;
+    }>(`/abstracts/reviewer-queue/${userId}?page=${page}&limit=${limit}`, {
+      method: 'GET',
     });
   },
 };
