@@ -33,6 +33,7 @@ export default function ManageReviewersPage() {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [warning, setWarning] = useState('')
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null)
   const [showTopicModal, setShowTopicModal] = useState(false)
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
@@ -42,6 +43,10 @@ export default function ManageReviewersPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalStaff, setTotalStaff] = useState(0)
+
+  // Search (debounced)
+  const [search, setSearch] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
 
   // Queue stats per userId
   const [queueStats, setQueueStats] = useState<Record<number, { assigned: number; reviewed: number }>>({})
@@ -72,16 +77,47 @@ export default function ManageReviewersPage() {
       return
     }
 
-    fetchStaffMembers(1)
+    fetchStaffMembers(1, '')
     fetchQueueStats()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  const fetchStaffMembers = async (targetPage: number) => {
+  // Debounce: hold the search 300ms before refiring the query.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Auto-dismiss toast notifications.
+  useEffect(() => {
+    if (!success) return
+    const t = setTimeout(() => setSuccess(''), 5000)
+    return () => clearTimeout(t)
+  }, [success])
+
+  useEffect(() => {
+    if (!error) return
+    const t = setTimeout(() => setError(''), 7000)
+    return () => clearTimeout(t)
+  }, [error])
+
+  useEffect(() => {
+    if (!warning) return
+    const t = setTimeout(() => setWarning(''), 6000)
+    return () => clearTimeout(t)
+  }, [warning])
+
+  // Refetch whenever the debounced search changes; reset to page 1.
+  useEffect(() => {
+    fetchStaffMembers(1, searchDebounced)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchDebounced])
+
+  const fetchStaffMembers = async (targetPage: number, searchTerm: string) => {
     setLoading(true)
     setError('')
     try {
-      const response = await authApi.getAllStaff(targetPage, PAGE_SIZE)
+      const response = await authApi.getAllStaff(targetPage, PAGE_SIZE, searchTerm)
       if (response.data) {
         const staffWithTopics = response.data.map((staff) => ({
           ...staff,
@@ -158,6 +194,7 @@ export default function ManageReviewersPage() {
     setShowTopicModal(true)
     setError('')
     setSuccess('')
+    setWarning('')
   }
 
   const handleCloseTopicModal = () => {
@@ -178,6 +215,7 @@ export default function ManageReviewersPage() {
     setActionLoading(true)
     setError('')
     setSuccess('')
+    setWarning('')
 
     try {
       console.log('Saving topics for staff ID:', selectedStaff.id)
@@ -219,7 +257,7 @@ export default function ManageReviewersPage() {
         setSuccess(
           `Topics updated successfully for ${selectedStaff.firstName} ${selectedStaff.lastName}`
         )
-        await fetchStaffMembers(page)
+        await fetchStaffMembers(page, searchDebounced)
         handleCloseTopicModal()
       }
     } catch (err) {
@@ -234,15 +272,22 @@ export default function ManageReviewersPage() {
     setActionLoading(true)
     setError('')
     setSuccess('')
+    setWarning('')
 
     try {
       const response = await abstractsApi.refreshReviewerQueue(staff.id)
       if (response.data) {
         const { added, removed, displaced, queueSize, capacity } = response.data
-        const displacedNote = displaced > 0 ? `, ${displaced} displaced from stale reviewers` : ''
-        setSuccess(
-          `Queue refreshed for ${staff.firstName} ${staff.lastName}: +${added} added, -${removed} cleared${displacedNote}, now ${queueSize}/${capacity}.`,
-        )
+        if (added === 0 && queueSize === 0) {
+          setWarning(
+            `No free abstract to assign to ${staff.firstName} ${staff.lastName}.`,
+          )
+        } else {
+          const displacedNote = displaced > 0 ? `, ${displaced} displaced from stale reviewers` : ''
+          setSuccess(
+            `Queue refreshed for ${staff.firstName} ${staff.lastName}: +${added} added, -${removed} cleared${displacedNote}, now ${queueSize}/${capacity}.`,
+          )
+        }
         await fetchQueueStats()
       } else {
         setError(response.message || 'Failed to refresh queue')
@@ -263,11 +308,12 @@ export default function ManageReviewersPage() {
     setActionLoading(true)
     setError('')
     setSuccess('')
+    setWarning('')
 
     try {
       await authApi.removeStaffTopic(staff.id, topic)
       setSuccess(`Topic removed successfully`)
-      await fetchStaffMembers(page)
+      await fetchStaffMembers(page, searchDebounced)
     } catch (err) {
       setError('Failed to remove topic')
     } finally {
@@ -322,40 +368,166 @@ export default function ManageReviewersPage() {
           </div>
         </div>
 
-        {/* Success/Error Messages */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center gap-3">
-            <svg
-              className="w-5 h-5 text-green-500 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {success}
+        {/* Floating toast notifications */}
+        {(success || error || warning) && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] w-[min(720px,92vw)] space-y-3">
+            {success && (
+              <div className="bg-white rounded-2xl shadow-2xl border-2 border-green-400 overflow-hidden animate-in fade-in slide-in-from-top-4 ring-4 ring-green-200/60">
+                <div className="flex items-stretch">
+                  <div className="bg-green-500 w-2 shrink-0" />
+                  <div className="flex-1 px-6 py-5 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                      <svg
+                        className="w-7 h-7 text-green-600"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <p className="flex-1 text-base font-medium text-gray-900 leading-snug">
+                      {success}
+                    </p>
+                    <button
+                      onClick={() => setSuccess('')}
+                      aria-label="Dismiss"
+                      className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {warning && (
+              <div className="bg-white rounded-2xl shadow-2xl border-2 border-amber-400 overflow-hidden animate-in fade-in slide-in-from-top-4 ring-4 ring-amber-200/60">
+                <div className="flex items-stretch">
+                  <div className="bg-amber-500 w-2 shrink-0" />
+                  <div className="flex-1 px-6 py-5 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                      <svg
+                        className="w-7 h-7 text-amber-600"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a1 1 0 011 1v3a1 1 0 11-2 0V6a1 1 0 011-1zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <p className="flex-1 text-base font-medium text-gray-900 leading-snug">
+                      {warning}
+                    </p>
+                    <button
+                      onClick={() => setWarning('')}
+                      aria-label="Dismiss"
+                      className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="bg-white rounded-2xl shadow-2xl border-2 border-red-400 overflow-hidden animate-in fade-in slide-in-from-top-4 ring-4 ring-red-200/60">
+                <div className="flex items-stretch">
+                  <div className="bg-red-500 w-2 shrink-0" />
+                  <div className="flex-1 px-6 py-5 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                      <svg
+                        className="w-7 h-7 text-red-600"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <p className="flex-1 text-base font-medium text-gray-900 leading-snug">
+                      {error}
+                    </p>
+                    <button
+                      onClick={() => setError('')}
+                      aria-label="Dismiss"
+                      className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl flex items-center gap-3">
+        {/* Search */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+          <div className="relative">
             <svg
-              className="w-5 h-5 text-red-500 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
+              className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
               <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.85 5.85a7.5 7.5 0 0010.8 10.8z"
               />
             </svg>
-            {error}
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or email…"
+              className="w-full pl-9 pr-9 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Staff List */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -522,14 +694,14 @@ export default function ManageReviewersPage() {
               </p>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => fetchStaffMembers(Math.max(1, page - 1))}
+                  onClick={() => fetchStaffMembers(Math.max(1, page - 1), searchDebounced)}
                   disabled={loading || page <= 1}
                   className="px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   ← Prev
                 </button>
                 <button
-                  onClick={() => fetchStaffMembers(Math.min(totalPages, page + 1))}
+                  onClick={() => fetchStaffMembers(Math.min(totalPages, page + 1), searchDebounced)}
                   disabled={loading || page >= totalPages}
                   className="px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40 disabled:hover:bg-transparent"
                 >
