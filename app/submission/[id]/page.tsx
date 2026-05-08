@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { abstractsApi, commentsApi, coauthorsApi } from '@/lib/api'
-import type { Abstract, AbstractComment, AbstractCoauthor } from '@/lib/types'
+import { abstractsApi, coauthorsApi } from '@/lib/api'
+import type { Abstract, AbstractCoauthor } from '@/lib/types'
 import ChangelogModal from '@/components/ChangelogModal'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -12,7 +12,6 @@ import Footer from '@/components/Footer'
 export default function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [abstract, setAbstract] = useState<Abstract | null>(null)
-  const [comments, setComments] = useState<AbstractComment[]>([])
   const [coauthors, setCoauthors] = useState<AbstractCoauthor[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
@@ -62,13 +61,6 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
           return
         }
         setAbstract(abstractResponse.data)
-      }
-
-      // Fetch comments
-      const commentsResponse = await commentsApi.getByAbstractId(abstractId)
-
-      if (commentsResponse.data) {
-        setComments(commentsResponse.data)
       }
 
       // Fetch co-authors
@@ -227,8 +219,13 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-yellow-800 mb-2">⚠️ Action Required</h3>
                 <p className="text-yellow-700 mb-3">
-                  The reviewer has requested additional information for your abstract. Please check the comments below for details.
+                  The reviewer has requested additional information for your abstract.
                 </p>
+                {abstract.reviewNote && (
+                  <div className="bg-white/60 border border-yellow-200 rounded-md p-3 mb-3 text-sm text-yellow-900 whitespace-pre-wrap">
+                    <span className="font-semibold">Note from the reviewer:</span> {abstract.reviewNote}
+                  </div>
+                )}
                 {isOwner && (
                   <Link
                     href={`/edit-abstract/${abstract.id}`}
@@ -246,10 +243,10 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
                 <p className="text-green-700">
                   Congratulations! Your abstract has been approved for presentation at the conference.
                 </p>
-                {abstract.points != null && (
-                  <p className="text-green-700 mt-2">
-                    <strong>Score:</strong> {abstract.points} points
-                  </p>
+                {abstract.reviewNote && (
+                  <div className="mt-3 bg-white/60 border border-green-200 rounded-md p-3 text-sm text-green-900 whitespace-pre-wrap">
+                    <span className="font-semibold">Note from the reviewer:</span> {abstract.reviewNote}
+                  </div>
                 )}
               </div>
             )}
@@ -258,8 +255,13 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
               <div className="bg-accent-red/10 border border-accent-red rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-red-800 mb-2">❌ Abstract Not Accepted</h3>
                 <p className="text-red-700">
-                  Your abstract was not accepted at this time. Please check the reviewer comments for feedback.
+                  Your abstract was not accepted at this time.
                 </p>
+                {abstract.reviewNote && (
+                  <div className="mt-3 bg-white/60 border border-red-200 rounded-md p-3 text-sm text-red-900 whitespace-pre-wrap">
+                    <span className="font-semibold">Note from the reviewer:</span> {abstract.reviewNote}
+                  </div>
+                )}
               </div>
             )}
 
@@ -379,31 +381,6 @@ export default function SubmissionDetailPage({ params }: { params: Promise<{ id:
                   <p className="text-gray-900 font-medium">{getStatusText(abstract.status)}</p>
                 </div>
               </div>
-            </div>
-
-            {/* Reviewer Comments */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Reviewer Comments ({comments.length})
-              </h3>
-
-              {comments.length === 0 ? (
-                <p className="text-gray-500 text-sm">No comments yet from reviewers.</p>
-              ) : (
-                <div className="space-y-4">
-                  {comments.map((c) => (
-                    <div key={c.id} className="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="font-medium text-gray-900 text-sm">{c.submittedBy}</span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(c.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-gray-700 text-sm">{c.comment}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Co-authors */}
