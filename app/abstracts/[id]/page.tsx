@@ -106,6 +106,14 @@ export default function AbstractDetailPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  // Right-column scoring tabs. Staff only see Section A so tabs are hidden for them.
+  type ScoreTab = 'A' | 'B' | 'BONUS';
+  const [activeTab, setActiveTab] = useState<ScoreTab>('A');
+  // Left-column top-level tabs: Abstract details | Reviews summary | Comments.
+  // Staff don't see the Reviews tab.
+  type LeftTab = 'ABSTRACT' | 'REVIEWS' | 'COMMENTS';
+  const [leftTab, setLeftTab] = useState<LeftTab>('ABSTRACT');
+
   // Section A: review form state
   const [reviewScores, setReviewScores] = useState<ReviewScores>({ ...INITIAL_SCORES });
   const [reviewComment, setReviewComment] = useState('');
@@ -460,20 +468,20 @@ export default function AbstractDetailPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {isSuperAdmin && (
                   <>
                     <button
                       onClick={() => handleStatusUpdate('approved')}
                       disabled={actionLoading || abstract.status === 'approved'}
-                      className="px-4 py-2 bg-accent-green text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 bg-accent-green text-white text-sm rounded-md hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleStatusUpdate('rejected')}
                       disabled={actionLoading || abstract.status === 'rejected'}
-                      className="px-4 py-2 bg-accent-red text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 bg-accent-red text-white text-sm rounded-md hover:bg-red-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Reject
                     </button>
@@ -482,9 +490,19 @@ export default function AbstractDetailPage() {
                 <button
                   onClick={() => handleStatusUpdate('more_info_requested')}
                   disabled={actionLoading || abstract.status === 'more_info_requested'}
-                  className="px-4 py-2 bg-primary-light text-white rounded-lg hover:bg-[#3da0d4] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 bg-primary-light text-white text-sm rounded-md hover:bg-[#3da0d4] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Request More Info
+                </button>
+                <button
+                  onClick={() => setChangelogModalOpen(true)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 transition-colors font-medium"
+                  title="View Change History"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  History
                 </button>
               </div>
             </div>
@@ -492,7 +510,52 @@ export default function AbstractDetailPage() {
 
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Left: Abstract Details */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4">
+              {/* Top-level tabs: Abstract | Reviews | Comments */}
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="flex border-b border-gray-200 bg-gray-50/60">
+                  <button
+                    onClick={() => setLeftTab('ABSTRACT')}
+                    className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
+                      leftTab === 'ABSTRACT'
+                        ? 'bg-white text-[#1a3a5c] border-b-2 border-[#1a3a5c] -mb-px'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Abstract
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('REVIEWS')}
+                    className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
+                      leftTab === 'REVIEWS'
+                        ? 'bg-white text-[#1a3a5c] border-b-2 border-[#1a3a5c] -mb-px'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {isSuperAdmin ? 'Reviews Summary' : 'My Review'}
+                    {reviewSummary && reviewSummary.reviewCount > 0 && (
+                      <span className="ml-2 text-xs text-gray-400">({reviewSummary.reviewCount})</span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('COMMENTS')}
+                    className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
+                      leftTab === 'COMMENTS'
+                        ? 'bg-white text-[#1a3a5c] border-b-2 border-[#1a3a5c] -mb-px'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Comments
+                    {comments && comments.length > 0 && (
+                      <span className="ml-2 text-xs text-gray-400">({comments.length})</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Abstract tab body */}
+              {leftTab === 'ABSTRACT' && (
+                <>
               {/* Basic Info */}
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Abstract Information</h2>
@@ -553,12 +616,140 @@ export default function AbstractDetailPage() {
                   dangerouslySetInnerHTML={{ __html: abstract.abstractBody }}
                 />
               </div>
+                </>
+              )}
+
+              {/* Reviews tab body. Backend filters: super admin sees all reviews,
+                  staff see only their own. */}
+              {leftTab === 'REVIEWS' && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  {reviewsLoading ? (
+                    <p className="text-center text-sm text-gray-500 py-4">Loading reviews...</p>
+                  ) : reviewSummary && reviewSummary.reviewCount > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between mb-5">
+                        <div>
+                          <p className="text-sm text-gray-500">
+                            {reviewSummary.reviewCount} review{reviewSummary.reviewCount !== 1 ? 's' : ''}
+                          </p>
+                          {(() => {
+                            const avg = Math.round(avgMerit);
+                            const rec = getRecommendation(avg);
+                            return (
+                              <span className={`inline-block mt-1 px-2.5 py-1 rounded text-xs font-semibold border ${rec.bg} ${rec.color}`}>
+                                {rec.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-4xl font-black leading-none ${meetsThreshold ? 'text-green-700' : 'text-red-600'}`}>
+                            {Math.round(avgMerit)}
+                            <span className="text-base font-semibold opacity-60">/30</span>
+                          </p>
+                          <p className={`text-xs mt-1 font-medium ${meetsThreshold ? 'text-green-600' : 'text-red-500'}`}>
+                            {meetsThreshold ? 'Meets threshold' : 'Below minimum (21)'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {reviewSummary.reviews.map((r, i) => (
+                          <div key={r.id} className="border border-gray-200 rounded-lg px-4 py-3 bg-gray-50/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-700 font-semibold">
+                                {isSuperAdmin ? `Reviewer ${i + 1}` : 'Your Review'}
+                              </span>
+                              <span className="text-base font-bold text-[#1a3a5c]">{r.totalScore}/30</span>
+                            </div>
+                            {r.comment && (
+                              <p className="text-sm text-gray-700 italic whitespace-pre-wrap">
+                                &ldquo;{r.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-center text-sm text-gray-500 py-4">No reviews submitted yet.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Comments tab body */}
+              {leftTab === 'COMMENTS' && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <form onSubmit={handleAddComment} className="mb-6">
+                    <textarea
+                      rows={3}
+                      placeholder="Add a comment..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-2 text-sm"
+                      value={newComment}
+                      onChange={e => setNewComment(e.target.value)}
+                    />
+                    <button
+                      type="submit"
+                      disabled={commentLoading || !newComment.trim()}
+                      className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    >
+                      {commentLoading ? 'Adding...' : 'Add Comment'}
+                    </button>
+                  </form>
+
+                  <div className="space-y-3">
+                    {!comments || comments.length === 0 ? (
+                      <p className="text-gray-500 text-sm text-center py-4">No comments yet</p>
+                    ) : (
+                      comments.map(comment => (
+                        <div key={comment.id} className="border-l-4 border-primary-500 pl-3 py-2 bg-gray-50/50 rounded-r">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-semibold text-gray-800">{comment.submittedBy}</span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(comment.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.comment}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Right column */}
-            <div className="lg:col-span-1 space-y-6">
+            {/* Right column — sticky scoring forms with tabs (super admin only) */}
+            <div className="lg:col-span-1">
+              <div className="lg:sticky lg:top-6 space-y-4">
+
+              {/* Tab nav — only when there's more than one section to choose. */}
+              {isSuperAdmin && (
+                <div className="bg-white rounded-lg shadow-md p-1 flex gap-1">
+                  {([
+                    { id: 'A',     label: 'Section A', sub: 'Merit · 30' },
+                    { id: 'B',     label: 'Section B', sub: 'SC · 100' },
+                    { id: 'BONUS', label: 'Bonus',     sub: 'C+D · 23' },
+                  ] as const).map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveTab(t.id)}
+                      className={`flex-1 px-2 py-2 rounded-md text-xs font-semibold transition-colors ${
+                        activeTab === t.id
+                          ? 'bg-[#1a3a5c] text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div>{t.label}</div>
+                      <div className={`text-[10px] mt-0.5 font-normal ${activeTab === t.id ? 'opacity-80' : 'opacity-60'}`}>
+                        {t.sub}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Section A: Scientific Merit Review Form */}
+              {(!isSuperAdmin || activeTab === 'A') && (
               <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="mb-4">
                   <h2 className="text-lg font-bold text-gray-800">Section A — Scientific Merit</h2>
@@ -624,60 +815,10 @@ export default function AbstractDetailPage() {
                   </p>
                 )}
               </div>
-
-              {/* Reviews Summary — Super Admin only */}
-              {isSuperAdmin && (reviewsLoading ? (
-                <div className="bg-white rounded-lg shadow-md p-6 text-center text-sm text-gray-500">
-                  Loading reviews...
-                </div>
-              ) : reviewSummary && reviewSummary.reviewCount > 0 ? (
-                <div className="bg-white rounded-lg shadow-md p-6">
-                  <h2 className="text-lg font-bold text-gray-800 mb-3">Review Summary</h2>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        {reviewSummary.reviewCount} review{reviewSummary.reviewCount !== 1 ? 's' : ''}
-                      </p>
-                      {(() => {
-                        const avg = Math.round(avgMerit);
-                        const rec = getRecommendation(avg);
-                        return (
-                          <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold border ${rec.bg} ${rec.color}`}>
-                            {rec.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-3xl font-black ${meetsThreshold ? 'text-green-700' : 'text-red-600'}`}>
-                        {Math.round(avgMerit)}
-                        <span className="text-sm font-semibold opacity-60">/30</span>
-                      </p>
-                      <p className={`text-xs mt-0.5 font-medium ${meetsThreshold ? 'text-green-600' : 'text-red-500'}`}>
-                        {meetsThreshold ? 'Meets threshold' : 'Below minimum (21)'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Per-reviewer breakdown */}
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {reviewSummary.reviews.map((r, i) => (
-                      <div key={r.id} className="border border-gray-100 rounded-lg px-3 py-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-600 font-medium">Reviewer {i + 1}</span>
-                          <span className="text-xs font-bold text-[#1a3a5c]">{r.totalScore}/30</span>
-                        </div>
-                        {r.comment && (
-                          <p className="text-xs text-gray-500 mt-1 italic">&ldquo;{r.comment}&rdquo;</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null)}
+              )}
 
               {/* Section B: SC Detailed Quality Scoring — Super Admin only */}
-              {isSuperAdmin && (
+              {isSuperAdmin && activeTab === 'B' && (
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -745,7 +886,7 @@ export default function AbstractDetailPage() {
               )}
 
               {/* Sections C & D: Bonus Points — Super Admin only */}
-              {isSuperAdmin && (
+              {isSuperAdmin && activeTab === 'BONUS' && (
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="mb-4">
                     <h2 className="text-lg font-bold text-gray-800">Sections C & D — Bonus Points</h2>
@@ -820,60 +961,10 @@ export default function AbstractDetailPage() {
                 </div>
               )}
 
-              {/* Comments Section */}
-              <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Comments</h2>
-
-                <form onSubmit={handleAddComment} className="mb-6">
-                  <textarea
-                    rows={4}
-                    placeholder="Add a comment..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-2"
-                    value={newComment}
-                    onChange={e => setNewComment(e.target.value)}
-                  />
-                  <button
-                    type="submit"
-                    disabled={commentLoading || !newComment.trim()}
-                    className="w-full px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {commentLoading ? 'Adding...' : 'Add Comment'}
-                  </button>
-                </form>
-
-                <div className="space-y-4">
-                  {!comments || comments.length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-4">No comments yet</p>
-                  ) : (
-                    comments.map(comment => (
-                      <div key={comment.id} className="border-l-4 border-primary-500 pl-3 py-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-semibold text-gray-800">{comment.submittedBy}</span>
-                          <span className="text-xs text-gray-500">
-                            {new Date(comment.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700">{comment.comment}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
               </div>
             </div>
           </div>
 
-          {/* View Changelog */}
-          <div className="mt-8 flex justify-center">
-            <button
-              onClick={() => setChangelogModalOpen(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              View Change History
-            </button>
-          </div>
 
           <ChangelogModal
             abstractId={abstractId}

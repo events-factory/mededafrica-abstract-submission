@@ -248,11 +248,6 @@ export default function MySubmissionsPage() {
                     <p className="text-sm text-green-800 font-medium">
                       ✅ Congratulations! Your abstract has been approved for presentation.
                     </p>
-                    {abstract.points != null && (
-                      <p className="text-sm text-green-700 mt-1">
-                        <strong>Score:</strong> {abstract.points} points
-                      </p>
-                    )}
                   </div>
                 )}
 
