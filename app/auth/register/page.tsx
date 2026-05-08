@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authApi } from '@/lib/api';
+import { authApi, clearSession } from '@/lib/api';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -68,8 +68,10 @@ function RegisterForm() {
 
     const mockToken = 'demo-token-' + Math.random().toString(36).substring(7);
 
+    clearSession();
     localStorage.setItem('authToken', mockToken);
     localStorage.setItem('user', JSON.stringify(mockUser));
+    window.dispatchEvent(new CustomEvent('auth:session-resumed'));
 
     router.push('/submit');
   };
@@ -94,8 +96,10 @@ function RegisterForm() {
       });
 
       if (response.data) {
+        clearSession();
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+        window.dispatchEvent(new CustomEvent('auth:session-resumed'));
 
         // Redirect based on user isStaff from backend
         if (response.data.user.isStaff) {

@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authApi } from '@/lib/api';
+import { authApi, clearSession } from '@/lib/api';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -33,8 +33,10 @@ function LoginForm() {
 
     const mockToken = 'demo-token-' + Math.random().toString(36).substring(7);
 
+    clearSession();
     localStorage.setItem('authToken', mockToken);
     localStorage.setItem('user', JSON.stringify(mockUser));
+    window.dispatchEvent(new CustomEvent('auth:session-resumed'));
 
     router.push('/dashboard');
   };
@@ -51,8 +53,12 @@ function LoginForm() {
       );
 
       if (response.data) {
+        // Wipe any prior user's session before installing the new one.
+        clearSession();
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Tell the API layer we have a fresh session so the next 401 can fire again.
+        window.dispatchEvent(new CustomEvent('auth:session-resumed'));
 
         // Redirect based on role from backend
         if (response.data.user.isStaff || response.data.user.isSuperAdmin) {

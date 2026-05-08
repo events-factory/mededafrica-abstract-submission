@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import SessionExpiredModal from '@/components/SessionExpiredModal'
 
 export const metadata: Metadata = {
   title: 'MedEd Africa Conference Abstract Submission',
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <SessionExpiredModal />
+      </body>
     </html>
   )
 }

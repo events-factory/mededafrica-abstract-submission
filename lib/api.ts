@@ -19,6 +19,46 @@ import {
 const API_BASE_URL = '/api/proxy';
 
 // Helper function for API requests
+// Wipes all auth-related state from localStorage. Call before storing a new
+// session (login/register) and when a session expires.
+export function clearSession() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('user');
+  // Drop any stale per-abstract scratch keys so a different user can't see them.
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('sc-score-')) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
+// Endpoints that legitimately return 401 for "wrong credentials" — we must NOT
+// treat those as session expiry.
+const AUTH_ENTRY_ENDPOINTS = new Set([
+  '/auth/login',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+]);
+
+let sessionExpiredFired = false;
+function fireSessionExpired() {
+  if (typeof window === 'undefined') return;
+  if (sessionExpiredFired) return; // de-dupe across concurrent failing requests
+  sessionExpiredFired = true;
+  clearSession();
+  window.dispatchEvent(new CustomEvent('auth:session-expired'));
+}
+
+// Reset the de-dupe flag once the user navigates back to login.
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:session-resumed', () => {
+    sessionExpiredFired = false;
+  });
+}
+
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -44,6 +84,12 @@ async function apiRequest<T>(
     const data = await response.json();
 
     if (!response.ok) {
+      // 401 with a token in flight → expired/invalid session. Skip auth-entry
+      // endpoints so a wrong-password 401 doesn't fire the modal.
+      const isAuthEntry = AUTH_ENTRY_ENDPOINTS.has(endpoint.split('?')[0]);
+      if (response.status === 401 && token && !isAuthEntry) {
+        fireSessionExpired();
+      }
       return {
         message: data.message || 'Request failed',
         data: data.data as T,
@@ -120,10 +166,7 @@ export const authApi = {
   },
 
   logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-    }
+    clearSession();
   },
 
   updatePassword: async (currentPassword: string, newPassword: string) => {
