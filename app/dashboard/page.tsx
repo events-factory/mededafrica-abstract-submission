@@ -77,15 +77,14 @@ export default function DashboardPage() {
     setIsSuperAdmin(!!userData.isSuperAdmin);
   }, [router]);
 
-  const fetchAbstracts = async (page: number) => {
+  const fetchAbstracts = async (page: number, statusFilter: typeof filter) => {
     setLoading(true);
-    const response = await abstractsApi.getAll(page, PAGE_SIZE);
+    const response = await abstractsApi.getAll(page, PAGE_SIZE, statusFilter);
 
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
       if (response.pagination) {
         setTotalPages(response.pagination.totalPages);
-        setTotalAbstracts(response.pagination.total);
       }
       setError('');
     } else {
@@ -118,9 +117,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchAbstracts(currentPage);
+    fetchAbstracts(currentPage, filter);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
+  }, [currentPage, filter]);
 
   useEffect(() => {
     fetchStatusCounts();
@@ -155,17 +154,18 @@ export default function DashboardPage() {
   };
 
   const q = search.trim().toLowerCase();
-  // When searching, filter across all abstracts; otherwise show the current server page.
+  // When searching, filter across the buffer; otherwise show the current server page.
+  // Status filtering is applied server-side, so we don't filter on it here.
   const sourceAbstracts = q ? allAbstracts : (abstracts || []);
   const filteredAbstracts = sourceAbstracts.filter((a) => {
-    const matchesStatus = filter === 'all' || a.status === filter;
-    const matchesSearch =
-      !q ||
+    if (q && filter !== 'all' && a.status !== filter) return false;
+    if (!q) return true;
+    return (
       a.title.toLowerCase().includes(q) ||
       a.presenterFullName.toLowerCase().includes(q) ||
       a.presenterEmail.toLowerCase().includes(q) ||
-      a.subThemeCategory.toLowerCase().includes(q);
-    return matchesStatus && matchesSearch;
+      a.subThemeCategory.toLowerCase().includes(q)
+    );
   });
 
   const handleFilterChange = (newFilter: typeof filter) => {
@@ -192,10 +192,28 @@ export default function DashboardPage() {
 
   const exportToExcel = async () => {
     setExportLoading(true);
-    const res = await abstractsApi.getAll(1, 1000);
-    setExportLoading(false);
+    // Backend caps `limit` at 100 — fetch in pages and concatenate.
+    const PAGE = 100;
+    const all: Abstract[] = [];
+    try {
+      const first = await abstractsApi.getAll(1, PAGE);
+      if (first.data && Array.isArray(first.data)) {
+        all.push(...first.data);
+        const totalPages = first.pagination?.totalPages ?? 1;
+        for (let p = 2; p <= totalPages; p++) {
+          const res = await abstractsApi.getAll(p, PAGE);
+          if (res.data && Array.isArray(res.data)) all.push(...res.data);
+        }
+      }
+    } finally {
+      setExportLoading(false);
+    }
 
-    const all = res.data && Array.isArray(res.data) ? res.data : [];
+    if (all.length === 0) {
+      alert('No abstracts to export.');
+      return;
+    }
+
     const rows = all.map((a) => ({
       ID: a.id,
       Title: a.title,

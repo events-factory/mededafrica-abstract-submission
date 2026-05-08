@@ -267,8 +267,12 @@ export const abstractsApi = {
     });
   },
 
-  getAll: async (page = 1, limit = 25) => {
-    return apiRequest<Abstract[]>(`/abstracts?page=${page}&limit=${limit}`, {
+  getAll: async (page = 1, limit = 25, status?: string) => {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+    if (status && status !== 'all') params.set('status', status);
+    return apiRequest<Abstract[]>(`/abstracts?${params.toString()}`, {
       method: 'GET',
     });
   },
