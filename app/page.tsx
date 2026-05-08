@@ -8,20 +8,64 @@ import type { User } from '@/lib/types';
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
+  const [welcomeToast, setWelcomeToast] = useState<User | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
-        setUser(JSON.parse(userStr));
+        const parsed = JSON.parse(userStr) as User;
+        setUser(parsed);
+        // Show the welcome toast at most once per browser session, only when an
+        // existing session is detected on the landing page.
+        if (sessionStorage.getItem('welcome-toast-shown') !== '1') {
+          sessionStorage.setItem('welcome-toast-shown', '1');
+          setWelcomeToast(parsed);
+        }
       } catch {
         setUser(null);
       }
     }
   }, []);
 
+  useEffect(() => {
+    if (!welcomeToast) return;
+    const t = setTimeout(() => setWelcomeToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [welcomeToast]);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-50 to-primary-100">
+      {welcomeToast && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-2">
+          <div className="px-4 py-3 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold shrink-0">
+              {(welcomeToast.firstName?.charAt(0) ?? '') + (welcomeToast.lastName?.charAt(0) ?? '') || '·'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900">
+                Welcome back, {welcomeToast.firstName} {welcomeToast.lastName}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                Signed in as {welcomeToast.email}
+              </p>
+            </div>
+            <button
+              onClick={() => setWelcomeToast(null)}
+              aria-label="Dismiss"
+              className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
       <Header />
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">

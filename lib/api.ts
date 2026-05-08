@@ -32,6 +32,8 @@ export function clearSession() {
       localStorage.removeItem(key);
     }
   }
+  // Reset the landing-page welcome toast so a fresh login is announced again.
+  sessionStorage.removeItem('welcome-toast-shown');
 }
 
 // Endpoints that legitimately return 401 for "wrong credentials" — we must NOT
