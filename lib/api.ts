@@ -331,6 +331,17 @@ export const abstractsApi = {
     );
   },
 
+  getStatusCounts: async () => {
+    return apiRequest<{
+      all: number;
+      pending: number;
+      under_review: number;
+      approved: number;
+      rejected: number;
+      more_info_requested: number;
+    }>('/abstracts/status-counts', { method: 'GET' });
+  },
+
   getReviewerQueueAbstracts: async (userId: number, page = 1, limit = 20) => {
     return apiRequest<{
       queueSize: number;
