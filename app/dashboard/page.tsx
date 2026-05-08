@@ -49,7 +49,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<
-    'all' | 'pending' | 'approved' | 'rejected' | 'more_info_requested'
+    'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested'
   >('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [statusCounts, setStatusCounts] = useState({ pending: 0, approved: 0, rejected: 0, more_info_requested: 0 });
+  const [statusCounts, setStatusCounts] = useState({ pending: 0, under_review: 0, approved: 0, rejected: 0, more_info_requested: 0 });
   const [exportLoading, setExportLoading] = useState(false);
   const [allAbstracts, setAllAbstracts] = useState<Abstract[]>([]);
 
@@ -102,6 +102,7 @@ export default function DashboardPage() {
       setAllAbstracts(all);
       setStatusCounts({
         pending: all.filter((a) => a.status === 'pending').length,
+        under_review: all.filter((a) => a.status === 'under_review').length,
         approved: all.filter((a) => a.status === 'approved').length,
         rejected: all.filter((a) => a.status === 'rejected').length,
         more_info_requested: all.filter((a) => a.status === 'more_info_requested').length,
@@ -122,6 +123,7 @@ export default function DashboardPage() {
   const getStatusBadge = (status: Abstract['status']) => {
     const badges = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      under_review: 'bg-indigo-100 text-indigo-800 border-indigo-200',
       approved: 'bg-green-100 text-green-800 border-green-200',
       rejected: 'bg-red-100 text-red-800 border-red-200',
       more_info_requested: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -129,6 +131,7 @@ export default function DashboardPage() {
 
     const labels = {
       pending: 'Pending',
+      under_review: 'Under Review',
       approved: 'Approved',
       rejected: 'Rejected',
       more_info_requested: 'More Info Requested',
@@ -254,6 +257,16 @@ export default function DashboardPage() {
               }`}
             >
               Pending ({statusCounts.pending})
+            </button>
+            <button
+              onClick={() => handleFilterChange('under_review')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filter === 'under_review'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Under Review ({statusCounts.under_review})
             </button>
             <button
               onClick={() => handleFilterChange('approved')}

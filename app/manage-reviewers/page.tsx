@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { authApi } from '@/lib/api'
+import { authApi, abstractsApi } from '@/lib/api'
 import AppLayout from '@/components/AppLayout'
 import type { StaffMember, StaffTopicAssignment } from '@/lib/types'
 
@@ -12,6 +12,20 @@ const SUB_THEME_CATEGORIES = [
   'Towards a Healthier Africa: Maternal, Newborn, and Child Health (MNCH), Gender, Sexual & Reproductive Health, and Health Systems Strengthening',
   'Learner-Centered Systems: Assessment and Accreditation',
 ]
+
+type QueueAbstract = {
+  id: number
+  title: string
+  presenterFullName: string
+  subThemeCategory: string
+  status: string
+  reviewed: boolean
+  reviewedAt: string | null
+  totalScore: number | null
+}
+
+const PAGE_SIZE = 10
+const QUEUE_DETAIL_PAGE_SIZE = 20
 
 export default function ManageReviewersPage() {
   const router = useRouter()
@@ -23,6 +37,22 @@ export default function ManageReviewersPage() {
   const [showTopicModal, setShowTopicModal] = useState(false)
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const [actionLoading, setActionLoading] = useState(false)
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalStaff, setTotalStaff] = useState(0)
+
+  // Queue stats per userId
+  const [queueStats, setQueueStats] = useState<Record<number, { assigned: number; reviewed: number }>>({})
+
+  // Queue detail modal
+  const [queueDetailStaff, setQueueDetailStaff] = useState<StaffMember | null>(null)
+  const [queueDetailLoading, setQueueDetailLoading] = useState(false)
+  const [queueDetailAbstracts, setQueueDetailAbstracts] = useState<QueueAbstract[]>([])
+  const [queueDetailPage, setQueueDetailPage] = useState(1)
+  const [queueDetailTotalPages, setQueueDetailTotalPages] = useState(1)
+  const [queueDetailQueueSize, setQueueDetailQueueSize] = useState(0)
 
   useEffect(() => {
     // Check authentication and super admin status
@@ -42,23 +72,27 @@ export default function ManageReviewersPage() {
       return
     }
 
-    fetchStaffMembers()
+    fetchStaffMembers(1)
+    fetchQueueStats()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  const fetchStaffMembers = async () => {
+  const fetchStaffMembers = async (targetPage: number) => {
     setLoading(true)
     setError('')
     try {
-      const response = await authApi.getAllStaff()
-      console.log('Staff members response:', response)
+      const response = await authApi.getAllStaff(targetPage, PAGE_SIZE)
       if (response.data) {
-        // Ensure topicAssignments is always an array
         const staffWithTopics = response.data.map((staff) => ({
           ...staff,
           topicAssignments: staff.topicAssignments || [],
         }))
-        console.log('Processed staff members:', staffWithTopics)
         setStaffMembers(staffWithTopics)
+        if (response.pagination) {
+          setPage(response.pagination.page)
+          setTotalPages(response.pagination.totalPages)
+          setTotalStaff(response.pagination.total)
+        }
       } else {
         setError(response.message || 'Failed to load staff members')
       }
@@ -68,6 +102,54 @@ export default function ManageReviewersPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchQueueStats = async () => {
+    try {
+      const response = await abstractsApi.getReviewerQueueStats()
+      if (response.data) {
+        const numericKeyed: Record<number, { assigned: number; reviewed: number }> = {}
+        for (const [k, v] of Object.entries(response.data)) {
+          numericKeyed[Number(k)] = v
+        }
+        setQueueStats(numericKeyed)
+      }
+    } catch (err) {
+      console.error('Error fetching queue stats:', err)
+    }
+  }
+
+  const handleOpenQueueDetail = async (staff: StaffMember) => {
+    setQueueDetailStaff(staff)
+    setQueueDetailPage(1)
+    await loadQueueDetailPage(staff.id, 1)
+  }
+
+  const loadQueueDetailPage = async (userId: number, targetPage: number) => {
+    setQueueDetailLoading(true)
+    try {
+      const response = await abstractsApi.getReviewerQueueAbstracts(
+        userId, targetPage, QUEUE_DETAIL_PAGE_SIZE,
+      )
+      if (response.data) {
+        setQueueDetailAbstracts(response.data.abstracts)
+        setQueueDetailQueueSize(response.data.queueSize)
+        if (response.pagination) {
+          setQueueDetailPage(response.pagination.page)
+          setQueueDetailTotalPages(response.pagination.totalPages)
+        }
+      }
+    } finally {
+      setQueueDetailLoading(false)
+    }
+  }
+
+  const handleCloseQueueDetail = () => {
+    setQueueDetailStaff(null)
+    setQueueDetailAbstracts([])
+    setQueueDetailPage(1)
+    setQueueDetailTotalPages(1)
+    setQueueDetailQueueSize(0)
   }
 
   const handleOpenTopicModal = (staff: StaffMember) => {
@@ -137,12 +219,37 @@ export default function ManageReviewersPage() {
         setSuccess(
           `Topics updated successfully for ${selectedStaff.firstName} ${selectedStaff.lastName}`
         )
-        await fetchStaffMembers()
+        await fetchStaffMembers(page)
         handleCloseTopicModal()
       }
     } catch (err) {
       console.error('Error in handleSaveTopics:', err)
       setError(`An error occurred while updating topics: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleRefreshQueue = async (staff: StaffMember) => {
+    setActionLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await abstractsApi.refreshReviewerQueue(staff.id)
+      if (response.data) {
+        const { added, removed, displaced, queueSize, capacity } = response.data
+        const displacedNote = displaced > 0 ? `, ${displaced} displaced from stale reviewers` : ''
+        setSuccess(
+          `Queue refreshed for ${staff.firstName} ${staff.lastName}: +${added} added, -${removed} cleared${displacedNote}, now ${queueSize}/${capacity}.`,
+        )
+        await fetchQueueStats()
+      } else {
+        setError(response.message || 'Failed to refresh queue')
+      }
+    } catch (err) {
+      console.error('Error refreshing queue:', err)
+      setError('An error occurred while refreshing the queue')
     } finally {
       setActionLoading(false)
     }
@@ -160,7 +267,7 @@ export default function ManageReviewersPage() {
     try {
       await authApi.removeStaffTopic(staff.id, topic)
       setSuccess(`Topic removed successfully`)
-      await fetchStaffMembers()
+      await fetchStaffMembers(page)
     } catch (err) {
       setError('Failed to remove topic')
     } finally {
@@ -265,6 +372,9 @@ export default function ManageReviewersPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Assigned Topics
                   </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Queue
+                  </th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Actions
                   </th>
@@ -273,7 +383,7 @@ export default function ManageReviewersPage() {
               <tbody className="divide-y divide-gray-200">
                 {staffMembers.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                       No staff members found
                     </td>
                   </tr>
@@ -345,14 +455,56 @@ export default function ManageReviewersPage() {
                           </div>
                         )}
                       </td>
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const stats = queueStats[staff.id]
+                          if (!stats || stats.assigned === 0) {
+                            return <span className="text-xs text-gray-400 italic">Empty</span>
+                          }
+                          const pct = stats.assigned === 0 ? 0 : Math.round((stats.reviewed / stats.assigned) * 100)
+                          const allDone = stats.reviewed === stats.assigned
+                          return (
+                            <button
+                              onClick={() => handleOpenQueueDetail(staff)}
+                              className={`group inline-flex flex-col items-start gap-1 text-left px-2.5 py-1 rounded-md border transition-colors ${
+                                allDone
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                              }`}
+                              title="View this reviewer's queue"
+                            >
+                              <span className="text-xs font-semibold">
+                                {stats.reviewed}<span className="opacity-60">/{stats.assigned}</span>
+                                <span className="text-[10px] opacity-70 ml-1">reviewed</span>
+                              </span>
+                              <span className="block w-24 h-1 rounded-full bg-white/60 overflow-hidden">
+                                <span
+                                  className={`block h-full ${allDone ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </span>
+                            </button>
+                          )
+                        })()}
+                      </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleOpenTopicModal(staff)}
-                          disabled={actionLoading}
-                          className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          Manage Topics
-                        </button>
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          <button
+                            onClick={() => handleRefreshQueue(staff)}
+                            disabled={actionLoading}
+                            title="Add up to 20 unreviewed abstracts to this reviewer's queue"
+                            className="px-3 py-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-md transition-colors disabled:opacity-50"
+                          >
+                            Refresh Queue
+                          </button>
+                          <button
+                            onClick={() => handleOpenTopicModal(staff)}
+                            disabled={actionLoading}
+                            className="px-3 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-md transition-colors disabled:opacity-50"
+                          >
+                            Manage Topics
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -360,8 +512,125 @@ export default function ManageReviewersPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination footer */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50">
+              <p className="text-xs text-gray-500">
+                Page <span className="font-semibold">{page}</span> of{' '}
+                <span className="font-semibold">{totalPages}</span> · {totalStaff} reviewers
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => fetchStaffMembers(Math.max(1, page - 1))}
+                  disabled={loading || page <= 1}
+                  className="px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => fetchStaffMembers(Math.min(totalPages, page + 1))}
+                  disabled={loading || page >= totalPages}
+                  className="px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Reviewer Queue Detail Modal */}
+      {queueDetailStaff && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {queueDetailStaff.firstName} {queueDetailStaff.lastName}'s Queue
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {queueDetailQueueSize} abstracts assigned
+                </p>
+              </div>
+              <button
+                onClick={handleCloseQueueDetail}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {queueDetailLoading ? (
+                <p className="text-sm text-gray-500 text-center py-8">Loading queue...</p>
+              ) : queueDetailAbstracts.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">No abstracts in this queue.</p>
+              ) : (
+                <div className="space-y-2">
+                  {queueDetailAbstracts.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-start gap-3 px-3 py-2.5 border border-gray-100 rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{a.title}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {a.presenterFullName} · {a.subThemeCategory}
+                        </p>
+                      </div>
+                      {a.reviewed ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-800 whitespace-nowrap">
+                          ✓ Reviewed{a.totalScore != null ? ` · ${a.totalScore}/30` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 whitespace-nowrap">
+                          Pending
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {queueDetailTotalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
+                <p className="text-xs text-gray-500">
+                  Page <span className="font-semibold">{queueDetailPage}</span> of{' '}
+                  <span className="font-semibold">{queueDetailTotalPages}</span>
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() =>
+                      queueDetailStaff &&
+                      loadQueueDetailPage(queueDetailStaff.id, Math.max(1, queueDetailPage - 1))
+                    }
+                    disabled={queueDetailLoading || queueDetailPage <= 1}
+                    className="px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40"
+                  >
+                    ← Prev
+                  </button>
+                  <button
+                    onClick={() =>
+                      queueDetailStaff &&
+                      loadQueueDetailPage(queueDetailStaff.id, Math.min(queueDetailTotalPages, queueDetailPage + 1))
+                    }
+                    disabled={queueDetailLoading || queueDetailPage >= queueDetailTotalPages}
+                    className="px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Topic Assignment Modal */}
       {showTopicModal && selectedStaff && (

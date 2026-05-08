@@ -36,7 +36,7 @@ export interface Abstract {
   deanContact?: string
   abstractBody: string
   submittedBy: string
-  status: 'pending' | 'approved' | 'rejected' | 'more_info_requested'
+  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested'
   points?: number | null
   equityPoints?: number | null
   reviewNote?: string
