@@ -94,19 +94,26 @@ export default function DashboardPage() {
     setLoading(false);
   };
 
-  // Fetch all abstracts (high limit) to power search and status counts.
-  const fetchAllAbstracts = async () => {
-    const res = await abstractsApi.getAll(1, 1000);
-    if (res.data && Array.isArray(res.data)) {
-      const all = res.data;
-      setAllAbstracts(all);
+  // Status counts come from a dedicated aggregate endpoint (cheap; no row transfer).
+  const fetchStatusCounts = async () => {
+    const res = await abstractsApi.getStatusCounts();
+    if (res.data) {
       setStatusCounts({
-        pending: all.filter((a) => a.status === 'pending').length,
-        under_review: all.filter((a) => a.status === 'under_review').length,
-        approved: all.filter((a) => a.status === 'approved').length,
-        rejected: all.filter((a) => a.status === 'rejected').length,
-        more_info_requested: all.filter((a) => a.status === 'more_info_requested').length,
+        pending: res.data.pending,
+        under_review: res.data.under_review,
+        approved: res.data.approved,
+        rejected: res.data.rejected,
+        more_info_requested: res.data.more_info_requested,
       });
+      setTotalAbstracts(res.data.all);
+    }
+  };
+
+  // Pull a wider slice for client-side search across pages. Capped by the backend.
+  const fetchAllAbstracts = async () => {
+    const res = await abstractsApi.getAll(1, 100);
+    if (res.data && Array.isArray(res.data)) {
+      setAllAbstracts(res.data);
     }
   };
 
@@ -116,6 +123,7 @@ export default function DashboardPage() {
   }, [currentPage]);
 
   useEffect(() => {
+    fetchStatusCounts();
     fetchAllAbstracts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
