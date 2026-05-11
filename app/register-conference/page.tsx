@@ -1269,7 +1269,7 @@ export default function RegisterConferencePage() {
                 options in <strong>Ethiopian Birr (ETB)</strong>, including <strong>Telebirr</strong>, will
                 be available soon, and this page will be updated once enabled.
               </p>
-              <p className="text-sm text-gray-700 mb-6">
+              <p className="text-sm text-gray-700 mb-4">
                 <strong>Note:</strong> Any ETB amounts displayed are indicative and may change based on the
                 foreign exchange rate at the time of payment. <strong>Group rates apply to a group of 8.</strong>{' '}
                 Registration includes access to conference sessions and conference materials, optional activities
@@ -1279,6 +1279,14 @@ export default function RegisterConferencePage() {
                   mededafrica@coms-africa.org
                 </a>
               </p>
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6">
+                <svg className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-red-800">
+                  <strong>Registration fees are non-refundable.</strong> Please ensure you have reviewed your selection before proceeding with payment.
+                </p>
+              </div>
               {categories.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">
                   No registration categories available at this time.
