@@ -51,9 +51,13 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<
     'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested'
   >('all');
+  const [reviewFilter, setReviewFilter] = useState<
+    'any' | '0' | '1' | '2' | '2plus' | 'admin'
+  >('any');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAbstracts, setTotalAbstracts] = useState(0); // server total, used for pagination display
+  const [filteredTotal, setFilteredTotal] = useState(0); // server total for current filter (status + reviewFilter)
   const [search, setSearch] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -77,14 +81,15 @@ export default function DashboardPage() {
     setIsSuperAdmin(!!userData.isSuperAdmin);
   }, [router]);
 
-  const fetchAbstracts = async (page: number, statusFilter: typeof filter) => {
+  const fetchAbstracts = async (page: number, statusFilter: typeof filter, rFilter: typeof reviewFilter) => {
     setLoading(true);
-    const response = await abstractsApi.getAll(page, PAGE_SIZE, statusFilter);
+    const response = await abstractsApi.getAll(page, PAGE_SIZE, statusFilter, rFilter);
 
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
       if (response.pagination) {
         setTotalPages(response.pagination.totalPages);
+        setFilteredTotal(response.pagination.total);
       }
       setError('');
     } else {
@@ -117,9 +122,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchAbstracts(currentPage, filter);
+    fetchAbstracts(currentPage, filter, reviewFilter);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, filter]);
+  }, [currentPage, filter, reviewFilter]);
 
   useEffect(() => {
     fetchStatusCounts();
@@ -154,8 +159,8 @@ export default function DashboardPage() {
   };
 
   const q = search.trim().toLowerCase();
-  // When searching, filter across the buffer; otherwise show the current server page.
-  // Status filtering is applied server-side, so we don't filter on it here.
+  // Status and review-count filtering are applied server-side.
+  // For search, fall back to the wider buffer so it can match across pages.
   const sourceAbstracts = q ? allAbstracts : (abstracts || []);
   const filteredAbstracts = sourceAbstracts.filter((a) => {
     if (q && filter !== 'all' && a.status !== filter) return false;
@@ -340,7 +345,8 @@ export default function DashboardPage() {
 
         {/* Search */}
         <div className="bg-white rounded-xl shadow-sm px-4 py-3 mb-4">
-          <div className="relative max-w-md">
+          <div className="flex flex-wrap items-center gap-3">
+          <div className="relative max-w-md flex-1 min-w-[260px]">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
@@ -360,9 +366,28 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-          {q && (
+          <select
+            value={reviewFilter}
+            onChange={(e) => {
+              setReviewFilter(e.target.value as typeof reviewFilter);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white"
+            title="Filter by number of reviewer reviews"
+          >
+            <option value="any">All reviews</option>
+            <option value="0">0 reviewers</option>
+            <option value="1">1 reviewer</option>
+            <option value="2">2 reviewers</option>
+            <option value="2plus">2+ reviewers</option>
+            <option value="admin">Has admin (SC) review</option>
+          </select>
+          </div>
+          {(q || reviewFilter !== 'any') && (
             <p className="text-xs text-gray-500 mt-2">
-              {filteredAbstracts.length} result{filteredAbstracts.length !== 1 ? 's' : ''} for &ldquo;{search}&rdquo;
+              {filteredAbstracts.length} result{filteredAbstracts.length !== 1 ? 's' : ''}
+              {q && <> for &ldquo;{search}&rdquo;</>}
+              {reviewFilter !== 'any' && <> · review filter active</>}
             </p>
           )}
         </div>
@@ -525,10 +550,10 @@ export default function DashboardPage() {
             </div>
           )}
           {/* Pagination */}
-          {!loading && !error && totalAbstracts > 0 && !q && (
+          {!loading && !error && filteredTotal > 0 && !q && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
               <p className="text-sm text-gray-500">
-                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalAbstracts)} of {totalAbstracts}
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredTotal)} of {filteredTotal}
               </p>
               <div className="flex items-center gap-1">
                 <button
