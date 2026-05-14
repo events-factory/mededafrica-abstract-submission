@@ -366,22 +366,50 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-          <select
-            value={reviewFilter}
-            onChange={(e) => {
-              setReviewFilter(e.target.value as typeof reviewFilter);
-              setCurrentPage(1);
-            }}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white"
-            title="Filter by number of reviewer reviews"
-          >
-            <option value="any">All reviews</option>
-            <option value="0">0 reviewers</option>
-            <option value="1">1 reviewer</option>
-            <option value="2">2 reviewers</option>
-            <option value="2plus">2+ reviewers</option>
-            <option value="admin">Has admin (SC) review</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="reviewFilter"
+              className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 whitespace-nowrap"
+            >
+              <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Reviewers per abstract:
+            </label>
+            <select
+              id="reviewFilter"
+              value={reviewFilter}
+              onChange={(e) => {
+                setReviewFilter(e.target.value as typeof reviewFilter);
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 transition-colors ${
+                reviewFilter !== 'any'
+                  ? 'bg-primary-50 border-primary-300 text-primary-700 font-medium'
+                  : 'bg-white border-gray-200 text-gray-700'
+              }`}
+              title="Filter abstracts by how many reviewers have scored them"
+            >
+              <option value="any">Show all</option>
+              <option value="0">No reviews yet (0 reviewers)</option>
+              <option value="1">Only 1 reviewer has scored</option>
+              <option value="2">2 reviewers have scored</option>
+              <option value="2plus">2 or more reviewers</option>
+              <option value="admin">Scored by admin (SC review)</option>
+            </select>
+            {reviewFilter !== 'any' && (
+              <button
+                onClick={() => {
+                  setReviewFilter('any');
+                  setCurrentPage(1);
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                title="Clear review filter"
+              >
+                Clear
+              </button>
+            )}
+          </div>
           </div>
           {(q || reviewFilter !== 'any') && (
             <p className="text-xs text-gray-500 mt-2">
