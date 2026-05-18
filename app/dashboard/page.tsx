@@ -219,25 +219,39 @@ export default function DashboardPage() {
       return;
     }
 
-    const rows = all.map((a) => ({
-      ID: a.id,
-      Title: a.title,
-      'Presenter Name': a.presenterFullName,
-      'Presenter Email': a.presenterEmail,
-      'Presenter Phone': a.presenterPhone,
-      'Presenter Institution': a.presenterInstitution,
-      'Presenter Country': a.presenterCountry,
-      'Presenter Gender': a.presenterGender,
-      'Professional Status': a.professionalStatus,
-      Category: a.subThemeCategory,
-      'Presentation Type': a.presentationType,
-      Status: a.status,
-      Points: a.points ?? '',
-      'Review Note': a.reviewNote ?? '',
-      'Reviewed By': a.reviewedBy ?? '',
-      'Reviewed At': a.reviewedAt ? new Date(a.reviewedAt).toLocaleDateString() : '',
-      'Submitted At': new Date(a.createdAt).toLocaleDateString(),
-    }));
+    const maxReviewers = Math.max(0, ...all.map((a) => a.reviews?.length ?? 0));
+
+    const rows = all.map((a) => {
+      const base: Record<string, string | number> = {
+        ID: a.id,
+        Title: a.title,
+        'Presenter Name': a.presenterFullName,
+        'Presenter Email': a.presenterEmail,
+        'Presenter Phone': a.presenterPhone ?? '',
+        'Presenter Institution': a.presenterInstitution ?? '',
+        'Presenter Country': a.presenterCountry ?? '',
+        'Presenter Gender': a.presenterGender ?? '',
+        'Professional Status': a.professionalStatus ?? '',
+        Category: a.subThemeCategory ?? '',
+        'Presentation Type': a.presentationType ?? '',
+        Status: a.status,
+        Points: a.points ?? '',
+        'Review Note': a.reviewNote ?? '',
+        'Reviewed By': a.reviewedBy ?? '',
+        'Reviewed At': a.reviewedAt ? new Date(a.reviewedAt).toLocaleDateString() : '',
+        'Submitted At': new Date(a.createdAt).toLocaleDateString(),
+      };
+
+      for (let i = 0; i < maxReviewers; i++) {
+        const r = a.reviews?.[i];
+        base[`Reviewer ${i + 1}`] = r?.reviewerEmail ?? '';
+        base[`Reviewer ${i + 1} Score`] = r?.totalScore ?? '';
+      }
+
+      base['Average Score'] = a.averageScore ?? '';
+
+      return base;
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
