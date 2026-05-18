@@ -219,7 +219,9 @@ export default function DashboardPage() {
       return;
     }
 
-    const maxReviewers = Math.max(0, ...all.map((a) => a.reviews?.length ?? 0));
+    const maxReviewers = isSuperAdmin
+      ? Math.max(0, ...all.map((a) => a.reviews?.length ?? 0))
+      : 0;
 
     const rows = all.map((a) => {
       const base: Record<string, string | number> = {
@@ -242,13 +244,14 @@ export default function DashboardPage() {
         'Submitted At': new Date(a.createdAt).toLocaleDateString(),
       };
 
-      for (let i = 0; i < maxReviewers; i++) {
-        const r = a.reviews?.[i];
-        base[`Reviewer ${i + 1}`] = r?.reviewerEmail ?? '';
-        base[`Reviewer ${i + 1} Score`] = r?.totalScore ?? '';
+      if (isSuperAdmin) {
+        for (let i = 0; i < maxReviewers; i++) {
+          const r = a.reviews?.[i];
+          base[`Reviewer ${i + 1}`] = r?.reviewerEmail ?? '';
+          base[`Reviewer ${i + 1} Score`] = r?.totalScore ?? '';
+        }
+        base['Average Score'] = a.averageScore ?? '';
       }
-
-      base['Average Score'] = a.averageScore ?? '';
 
       return base;
     });
