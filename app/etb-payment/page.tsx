@@ -146,14 +146,12 @@ export default function EtbPaymentPage() {
                   <span className="text-red-500">Q</span>
                   <span className="text-blue-600">R</span>
                 </div>
-                <div className="bg-gray-100 rounded p-4 mb-3 mx-auto w-36 h-36 flex items-center justify-center border border-gray-300">
-                  <p className="text-xs text-gray-500 text-center">
-                    QR Code
-                    <br />
-                    (Ethiopian Interoperable
-                    <br />
-                    Payment)
-                  </p>
+                <div className="rounded mb-3 mx-auto w-36 h-36 flex items-center justify-center">
+                  <img
+                    src="/etb.avif"
+                    alt="Ethiopian Interoperable Payment QR Code"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <p className="font-bold text-sm text-gray-800 mb-1">
                   MOH CONTR FOR HEALTH CARE RESTOR B
