@@ -77,7 +77,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="max-w-3xl mx-auto grid md:grid-cols-2 gap-6">
+        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
           {/* Conference Registration Card */}
           <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
             <div className="text-center mb-6">
@@ -97,7 +97,7 @@ export default function Home() {
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                Conference Registration
+                 Registration <br /> (Payment in USD)
               </h2>
               <p className="text-gray-600 mb-6">
                 Register to attend the MedEdAfrica2026
@@ -109,6 +109,44 @@ export default function Home() {
                 className="block w-full bg-green-500 text-white text-center py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold"
               >
                 Register for the Conference
+              </Link>
+              <p className="text-sm text-gray-500 text-center">
+                06-08 July 2026 | Addis Ababa, Ethiopia
+              </p>
+            </div>
+          </div>
+
+          {/* Local Delegate (ETB) Card */}
+          <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-10 h-10 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm7 7a2 2 0 100-4 2 2 0 000 4z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                  Registration <br />Local Delegate (Payment in ETB)
+              </h2>
+              <p className="text-gray-600 mb-6">
+                For Ethiopian residents paying in birr via Commercial Bank of Ethiopia. Scan & Pay by QR and upload your receipt.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Link
+                href="/etb-payment"
+                className="block w-full bg-amber-500 text-white text-center py-3 rounded-lg hover:bg-amber-600 transition-colors font-semibold"
+              >
+                Pay in ETB & Upload Receipt
               </Link>
               <p className="text-sm text-gray-500 text-center">
                 06-08 July 2026 | Addis Ababa, Ethiopia
