@@ -267,12 +267,19 @@ export const abstractsApi = {
     });
   },
 
-  getAll: async (page = 1, limit = 25, status?: string, reviewFilter?: string) => {
+  getAll: async (
+    page = 1,
+    limit = 25,
+    status?: string,
+    reviewFilter?: string,
+    scoreFilter?: string,
+  ) => {
     const params = new URLSearchParams();
     params.set('page', String(page));
     params.set('limit', String(limit));
     if (status && status !== 'all') params.set('status', status);
     if (reviewFilter && reviewFilter !== 'any') params.set('reviewFilter', reviewFilter);
+    if (scoreFilter && scoreFilter !== 'any') params.set('scoreFilter', scoreFilter);
     return apiRequest<Abstract[]>(`/abstracts?${params.toString()}`, {
       method: 'GET',
     });
