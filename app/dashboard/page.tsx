@@ -54,6 +54,9 @@ export default function DashboardPage() {
   const [reviewFilter, setReviewFilter] = useState<
     'any' | '0' | '1' | '2' | '2plus' | 'admin'
   >('any');
+  const [scoreFilter, setScoreFilter] = useState<
+    'any' | 'below15' | '15to19' | '20plus'
+  >('any');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAbstracts, setTotalAbstracts] = useState(0); // server total, used for pagination display
@@ -81,9 +84,20 @@ export default function DashboardPage() {
     setIsSuperAdmin(!!userData.isSuperAdmin);
   }, [router]);
 
-  const fetchAbstracts = async (page: number, statusFilter: typeof filter, rFilter: typeof reviewFilter) => {
+  const fetchAbstracts = async (
+    page: number,
+    statusFilter: typeof filter,
+    rFilter: typeof reviewFilter,
+    sFilter: typeof scoreFilter,
+  ) => {
     setLoading(true);
-    const response = await abstractsApi.getAll(page, PAGE_SIZE, statusFilter, rFilter);
+    const response = await abstractsApi.getAll(
+      page,
+      PAGE_SIZE,
+      statusFilter,
+      rFilter,
+      sFilter,
+    );
 
     if (response.data && Array.isArray(response.data)) {
       setAbstracts(response.data);
@@ -122,9 +136,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchAbstracts(currentPage, filter, reviewFilter);
+    fetchAbstracts(currentPage, filter, reviewFilter, scoreFilter);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, filter, reviewFilter]);
+  }, [currentPage, filter, reviewFilter, scoreFilter]);
 
   useEffect(() => {
     fetchStatusCounts();
@@ -427,12 +441,57 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="scoreFilter"
+                className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 whitespace-nowrap"
+              >
+                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M7 15l4-4 4 4 6-6" />
+                </svg>
+                Average score:
+              </label>
+              <select
+                id="scoreFilter"
+                value={scoreFilter}
+                onChange={(e) => {
+                  setScoreFilter(e.target.value as typeof scoreFilter);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 transition-colors ${
+                  scoreFilter !== 'any'
+                    ? 'bg-primary-50 border-primary-300 text-primary-700 font-medium'
+                    : 'bg-white border-gray-200 text-gray-700'
+                }`}
+                title="Filter abstracts by average reviewer score"
+              >
+                <option value="any">Show all</option>
+                <option value="below15">Below 15</option>
+                <option value="15to19">15 to 19</option>
+                <option value="20plus">20 and above</option>
+              </select>
+              {scoreFilter !== 'any' && (
+                <button
+                  onClick={() => {
+                    setScoreFilter('any');
+                    setCurrentPage(1);
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                  title="Clear score filter"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
           </div>
-          {(q || reviewFilter !== 'any') && (
+          {(q || reviewFilter !== 'any' || scoreFilter !== 'any') && (
             <p className="text-xs text-gray-500 mt-2">
               {filteredAbstracts.length} result{filteredAbstracts.length !== 1 ? 's' : ''}
               {q && <> for &ldquo;{search}&rdquo;</>}
               {reviewFilter !== 'any' && <> · review filter active</>}
+              {scoreFilter !== 'any' && <> · score filter active</>}
             </p>
           )}
         </div>
