@@ -49,7 +49,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<
-    'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested'
+    'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested' | 'my_assigned'
   >('all');
   const [reviewFilter, setReviewFilter] = useState<
     'any' | '0' | '1' | '2' | '2plus' | 'admin'
@@ -67,6 +67,8 @@ export default function DashboardPage() {
   const [statusCounts, setStatusCounts] = useState({ pending: 0, under_review: 0, approved: 0, rejected: 0, more_info_requested: 0 });
   const [exportLoading, setExportLoading] = useState(false);
   const [allAbstracts, setAllAbstracts] = useState<Abstract[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [myAssignedCount, setMyAssignedCount] = useState(0);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -82,6 +84,7 @@ export default function DashboardPage() {
     }
 
     setIsSuperAdmin(!!userData.isSuperAdmin);
+    if (userData.id) setCurrentUserId(userData.id);
   }, [router]);
 
   const fetchAbstracts = async (
@@ -91,10 +94,27 @@ export default function DashboardPage() {
     sFilter: typeof scoreFilter,
   ) => {
     setLoading(true);
+
+    if (statusFilter === 'my_assigned') {
+      const res = await abstractsApi.getMySCAssignments();
+      if (res.data && Array.isArray(res.data)) {
+        const assigned = res.data.map((a) => a.abstract);
+        const start = (page - 1) * PAGE_SIZE;
+        setAbstracts(assigned.slice(start, start + PAGE_SIZE));
+        setTotalPages(Math.ceil(assigned.length / PAGE_SIZE));
+        setFilteredTotal(assigned.length);
+        setError('');
+      } else {
+        setError('Failed to load SC assignments');
+      }
+      setLoading(false);
+      return;
+    }
+
     const response = await abstractsApi.getAll(
       page,
       PAGE_SIZE,
-      statusFilter,
+      statusFilter as Exclude<typeof statusFilter, 'my_assigned'>,
       rFilter,
       sFilter,
     );
@@ -145,6 +165,14 @@ export default function DashboardPage() {
     fetchAllAbstracts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      abstractsApi.getMySCAssignments().then((res) => {
+        if (res.data && Array.isArray(res.data)) setMyAssignedCount(res.data.length);
+      });
+    }
+  }, [isSuperAdmin]);
 
   const getStatusBadge = (status: Abstract['status']) => {
     const badges = {
@@ -299,10 +327,10 @@ export default function DashboardPage() {
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => handleFilterChange('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === 'all'
                   ? 'bg-primary-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -312,7 +340,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => handleFilterChange('pending')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === 'pending'
                   ? 'bg-yellow-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -322,7 +350,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => handleFilterChange('under_review')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === 'under_review'
                   ? 'bg-indigo-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -332,7 +360,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => handleFilterChange('approved')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === 'approved'
                   ? 'bg-green-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -342,7 +370,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => handleFilterChange('rejected')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === 'rejected'
                   ? 'bg-red-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -352,14 +380,26 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => handleFilterChange('more_info_requested')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === 'more_info_requested'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              More Info Requested ({statusCounts.more_info_requested})
+              More Info ({statusCounts.more_info_requested})
             </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => handleFilterChange('my_assigned')}
+                className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  filter === 'my_assigned'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                My SC Assignments ({myAssignedCount})
+              </button>
+            )}
           </div>
           <button
             onClick={exportToExcel}
@@ -425,7 +465,6 @@ export default function DashboardPage() {
               <option value="0">No reviews yet (0 reviewers)</option>
               <option value="1">Only 1 reviewer has scored</option>
               <option value="2">2 reviewers have scored</option>
-              <option value="2plus">2 or more reviewers</option>
               <option value="admin">Scored by admin (SC review)</option>
             </select>
             {reviewFilter !== 'any' && (
