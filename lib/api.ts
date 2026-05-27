@@ -418,6 +418,15 @@ export const abstractsApi = {
       method: 'GET',
     });
   },
+
+  getMySCAssignments: async () => {
+    return apiRequest<Array<{
+      id: number;
+      abstractId: number;
+      reviewerEmail: string;
+      abstract: Abstract;
+    }>>('/abstracts/sc-assignments/mine', { method: 'GET' });
+  },
 };
 
 // Comments API
