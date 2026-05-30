@@ -625,8 +625,10 @@ export default function AbstractDetailPage() {
                 <div className="bg-white rounded-lg shadow-md p-6">
                   {reviewsLoading ? (
                     <p className="text-center text-sm text-gray-500 py-4">Loading reviews...</p>
-                  ) : reviewSummary && reviewSummary.reviewCount > 0 ? (
+                  ) : reviewSummary && (reviewSummary.reviewCount > 0 || reviewSummary.scReviewCount) ? (
                     <>
+                      {reviewSummary.reviewCount > 0 && (
+                      <>
                       <div className="flex items-center justify-between mb-5">
                         <div>
                           <p className="text-sm text-gray-500">
@@ -670,6 +672,43 @@ export default function AbstractDetailPage() {
                           </div>
                         ))}
                       </div>
+                      </>
+                      )}
+
+                      {/* Scientific Committee (Phase 2) reviews — scored out of 100. */}
+                      {reviewSummary.scReviewCount ? (
+                        <div className={reviewSummary.reviewCount > 0 ? 'mt-6 border-t pt-5' : ''}>
+                          <div className="flex items-center justify-between mb-5">
+                            <p className="text-sm text-gray-500">
+                              {reviewSummary.scReviewCount} SC review{reviewSummary.scReviewCount !== 1 ? 's' : ''}
+                            </p>
+                            <p className="text-4xl font-black leading-none text-blue-700">
+                              {reviewSummary.scAverageScore ?? '—'}
+                              <span className="text-base font-semibold opacity-60">/100</span>
+                            </p>
+                          </div>
+                          <div className="space-y-3">
+                            {reviewSummary.scReviews!.map((r, i) => (
+                              <div key={`${r.reviewerEmail}-${i}`} className="border border-gray-200 rounded-lg px-4 py-3 bg-gray-50/50">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm text-gray-700 font-semibold">
+                                    {isSuperAdmin ? r.reviewerEmail : 'Your SC Review'}
+                                  </span>
+                                  <span className="text-base font-bold text-blue-700">{r.scientificMeritTotal}/100</span>
+                                </div>
+                                <span className="inline-block text-xs font-medium text-gray-500 capitalize">
+                                  {r.recommendation.replace(/_/g, ' ')}
+                                </span>
+                                {r.comment && (
+                                  <p className="text-sm text-gray-700 italic whitespace-pre-wrap mt-1">
+                                    &ldquo;{r.comment}&rdquo;
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <p className="text-center text-sm text-gray-500 py-4">No reviews submitted yet.</p>
