@@ -39,6 +39,7 @@ export interface Abstract {
   status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested'
   points?: number | null
   equityPoints?: number | null
+  scRecommendation?: 'accept_oral' | 'accept_poster' | 'not_accepted' | null
   // Bonus point breakdown (Sections C + D)
   geoBonusUnderrepresentedRegion?: number | null
   geoBonusLMIC?: number | null
