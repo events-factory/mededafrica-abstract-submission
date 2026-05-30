@@ -709,6 +709,26 @@ export default function AbstractDetailPage() {
                           </div>
                         </div>
                       ) : null}
+
+                      {/* Bonus points breakdown (Sections C + D). */}
+                      {abstract.equityPoints != null && abstract.equityPoints > 0 && (
+                        <div className="mt-6 border-t pt-4">
+                          <div className="flex items-baseline justify-between mb-2">
+                            <span className="text-sm text-gray-600">Bonus (Sections C + D)</span>
+                            <span className="text-2xl font-bold text-purple-700">
+                              +{abstract.equityPoints}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 space-y-0.5">
+                            {abstract.geoBonusUnderrepresentedRegion ? <div>Underrepresented region: +{abstract.geoBonusUnderrepresentedRegion}</div> : null}
+                            {abstract.geoBonusLMIC ? <div>LMIC: +{abstract.geoBonusLMIC}</div> : null}
+                            {abstract.geoBonusFirstTimeInstitution ? <div>First-time institution: +{abstract.geoBonusFirstTimeInstitution}</div> : null}
+                            {abstract.equityBonusUnderrepresentedGender ? <div>Underrepresented gender: +{abstract.equityBonusUnderrepresentedGender}</div> : null}
+                            {abstract.equityBonusMemberUniversity ? <div>Member university: +{abstract.equityBonusMemberUniversity}</div> : null}
+                            {abstract.equityBonusPartnerInstitution ? <div>Partner institution: +{abstract.equityBonusPartnerInstitution}</div> : null}
+                          </div>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <p className="text-center text-sm text-gray-500 py-4">No reviews submitted yet.</p>
