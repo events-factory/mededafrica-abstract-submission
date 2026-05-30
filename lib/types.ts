@@ -70,11 +70,21 @@ export interface ScientificReview extends ScientificReviewPayload {
   createdAt: string
 }
 
+export interface SCReviewItem {
+  reviewerEmail: string
+  scientificMeritTotal: number
+  recommendation: 'accept_oral' | 'accept_poster' | 'not_accepted'
+  comment?: string | null
+}
+
 export interface ReviewsSummary {
   reviews: ScientificReview[]
   averageScientificMerit: number
   reviewCount: number
   meetsMinimumThreshold: boolean
+  scReviews?: SCReviewItem[]
+  scAverageScore?: number | null
+  scReviewCount?: number
 }
 
 export interface SCScorePayload {
