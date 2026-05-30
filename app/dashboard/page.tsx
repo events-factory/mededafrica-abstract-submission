@@ -193,7 +193,7 @@ export default function DashboardPage() {
 
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-semibold border ${badges[status]}`}
+        className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${badges[status]}`}
       >
         {labels[status]}
       </span>
@@ -597,7 +597,21 @@ export default function DashboardPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        {getStatusBadge(abstract.status)}
+                        {abstract.scRecommendation === 'accept_oral' ? (
+                          <span className="inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-100 text-emerald-800 border-emerald-200">
+                            Accepted — Oral
+                          </span>
+                        ) : abstract.scRecommendation === 'accept_poster' ? (
+                          <span className="inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border bg-teal-100 text-teal-800 border-teal-200">
+                            Accepted — Poster
+                          </span>
+                        ) : abstract.scRecommendation === 'not_accepted' ? (
+                          <span className="inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border bg-red-100 text-red-800 border-red-200">
+                            Not Accepted
+                          </span>
+                        ) : (
+                          getStatusBadge(abstract.status)
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-xs text-gray-600">
                         {(() => {
