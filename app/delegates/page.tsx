@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { delegatesApi, DelegateTableHeader, Delegate } from '@/lib/api'
+import { delegatesApi, DelegateTableHeader, Delegate, DelegateDetailResponse } from '@/lib/api'
 import AppLayout from '@/components/AppLayout'
 
 export default function DelegatesPage() {
@@ -16,6 +16,11 @@ export default function DelegatesPage() {
   const [selectedDelegate, setSelectedDelegate] = useState<Delegate | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  // Full delegate details (fetched on demand when opening the View modal)
+  const [delegateDetails, setDelegateDetails] = useState<DelegateDetailResponse['data'] | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState('')
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -173,6 +178,96 @@ export default function DelegatesPage() {
     return null
   }
 
+  // Parse the per-delegate "Other Info" embedded in the action cell (slot 0):
+  // Pay. Status, To pay, Paid and Remaining amounts.
+  const getPaymentDetails = (delegate: Delegate) => {
+    const html = getDelegateValue(delegate, 0)
+
+    const grabAmount = (label: string): { amount: number; currency: string; raw: string } | null => {
+      // e.g. "To pay: 30 USD" inside a dropdown-item anchor
+      const match = html.match(new RegExp(`${label}\\s*:?\\s*([\\d.,]+)\\s*([A-Za-z]{2,4})`))
+      if (!match) return null
+      const currency = (match[2] || 'USD').toUpperCase()
+      return {
+        amount: parseFloat(match[1].replace(/,/g, '')),
+        currency,
+        raw: `${match[1]} ${currency}`,
+      }
+    }
+
+    return {
+      toPay: grabAmount('To pay'),
+      paid: grabAmount('Paid'),
+      remaining: grabAmount('Remaining'),
+    }
+  }
+
+  // Completeness badge (slot 1): COMPLETED vs INCOMPLETE/MISSING INFORMATION
+  const getCompletenessStatus = (delegate: Delegate): string | null => {
+    const html = getDelegateValue(delegate, 1)
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().replace(/,\s*$/, '')
+    return text || null
+  }
+
+  // Breakdown of registrations per category (based on the filtered set),
+  // including payment status counts and the amount collected per category.
+  const categoryBreakdown = useMemo(() => {
+    interface CategoryStat {
+      name: string
+      count: number
+      color: string
+      paid: number
+      pending: number
+      free: number
+      amountPaid: number
+      currency: string
+    }
+
+    const stats = new Map<string, CategoryStat>()
+
+    filteredDelegates.forEach((delegate) => {
+      const category = getCategoryBadge(delegate)
+      const name = category?.text?.trim() || 'Uncategorized'
+      const color = category?.bgColor || '#6c757d'
+      const { paymentStatus } = getStatusInfo(delegate)
+      // Real amount paid (parsed from the delegate's "Other Info" cell)
+      const payment = getPaymentDetails(delegate)
+
+      let entry = stats.get(name)
+      if (!entry) {
+        entry = {
+          name,
+          count: 0,
+          color,
+          paid: 0,
+          pending: 0,
+          free: 0,
+          amountPaid: 0,
+          currency: payment.paid?.currency || payment.toPay?.currency || 'USD',
+        }
+        stats.set(name, entry)
+      }
+
+      entry.count += 1
+      if (payment.paid) {
+        entry.amountPaid += payment.paid.amount
+        entry.currency = payment.paid.currency
+      }
+
+      const status = paymentStatus?.text
+      if (status === 'Paid') {
+        entry.paid += 1
+      } else if (status === 'Pending') {
+        entry.pending += 1
+      } else if (status === 'Free') {
+        entry.free += 1
+      }
+    })
+
+    return Array.from(stats.values()).sort((a, b) => b.count - a.count)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredDelegates])
+
   // Data field mapping: headerIndex maps to delegate array index
   // Headers: [0: Prefix, 1: First Name, 2: Last Name, 3: Email, 4: DOB, 5: Nationality...]
   // Delegate: [0: actions, 1: status, 2: badge?, 3: org badge, 4: ?, 5: firstName, 6: lastName, 7: email...]
@@ -193,69 +288,133 @@ export default function DelegatesPage() {
     return value || '-'
   }
 
-  // Get all delegate fields with labels for the detail view
+  // Strip surrounding markup/quotes from a raw delegate value so it renders cleanly.
+  const cleanValue = (raw: string): string => {
+    // Remove HTML tags, collapse whitespace, and trim stray leading quotes
+    const stripped = raw
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    return stripped.replace(/^'+|'+$/g, '').trim()
+  }
+
+  // Build the list of detail fields actually available for a delegate.
+  // NOTE: the delegates-list API only returns name, email, the badge cells and
+  // the embedded payment info — it does NOT return the extended registration
+  // fields (DOB, nationality, phone, institution, etc.). We therefore only show
+  // fields that have real data rather than rendering the full (mostly-empty)
+  // schema, which previously made populated records look blank.
   const getDelegateDetails = (delegate: Delegate) => {
     const details: { label: string; value: string; isHtml?: boolean }[] = []
 
-    // Map headers to delegate data (starting from index 5 for actual data)
-    // Headers: [0: Prefix, 1: First Name, 2: Last Name, 3: Email, 4: DOB, 5: Nationality, 6: Gender, 7: Phone, 8: Institution, 9: Job Title, 10: Area of Work]
-    // Delegate data indices: [5: firstName, 6: lastName, 7: email, ...]
+    const firstName = cleanValue(getDelegateValue(delegate, 5))
+    const lastName = cleanValue(getDelegateValue(delegate, 6))
+    const email = cleanValue(getDelegateValue(delegate, 7))
 
-    const fieldMapping = [
-      { label: 'First Name', dataIndex: 5 },
-      { label: 'Last Name', dataIndex: 6 },
-      { label: 'Email', dataIndex: 7 },
-    ]
-
-    // Add mapped fields from headers (skip first header which is Prefix)
-    headers.forEach((header, idx) => {
-      if (idx === 0) return // Skip Prefix
-      const dataIndex = idx + 4 // Offset to get actual data
-      const value = getDelegateValue(delegate, dataIndex)
-
-      // Skip HTML values except for specific badge fields
-      if (value && !value.includes('<button') && !value.includes('<div class=\'btn')) {
-        details.push({
-          label: header.nameEnglish,
-          value: value,
-          isHtml: value.includes('<span') || value.includes('<div')
-        })
-      }
-    })
-
-    // Add category if exists
+    // Category badge (first, for prominence)
     const category = getCategoryBadge(delegate)
     if (category) {
-      details.unshift({
+      details.push({
         label: 'Category',
         value: `<span class="badge text-white" style="background: ${category.bgColor}">${category.text}</span>`,
-        isHtml: true
+        isHtml: true,
       })
     }
 
-    // Add status info
+    // Registration completeness
+    const completeness = getCompletenessStatus(delegate)
+    if (completeness) {
+      details.push({ label: 'Registration Status', value: completeness })
+    }
+
+    if (firstName) details.push({ label: 'First Name', value: firstName })
+    if (lastName) details.push({ label: 'Last Name', value: lastName })
+    if (email) details.push({ label: 'Email', value: email })
+
+    // Invitation + payment status (derived from the badge HTML)
     const status = getStatusInfo(delegate)
     if (status.invitationStatus) {
-      details.push({
-        label: 'Invitation Status',
-        value: status.invitationStatus.text
-      })
+      details.push({ label: 'Invitation Status', value: status.invitationStatus.text })
     }
     if (status.paymentStatus) {
-      details.push({
-        label: 'Payment Status',
-        value: status.paymentStatus.text
-      })
+      details.push({ label: 'Payment Status', value: status.paymentStatus.text })
     }
+
+    // Per-delegate payment amounts parsed from the action cell
+    const payment = getPaymentDetails(delegate)
+    if (payment.toPay) details.push({ label: 'Amount To Pay', value: payment.toPay.raw })
+    if (payment.paid) details.push({ label: 'Amount Paid', value: payment.paid.raw })
+    if (payment.remaining) details.push({ label: 'Amount Remaining', value: payment.remaining.raw })
 
     return details
   }
 
+  // Build the detail grid items. When the full record has been fetched
+  // (delegateDetails) we show every registration field plus payment/meta info;
+  // otherwise we fall back to the limited data available in the list row.
+  const buildDetailItems = (
+    data: DelegateDetailResponse['data'] | null,
+    fallback: Delegate,
+  ): { label: string; value: string; isHtml?: boolean }[] => {
+    if (!data) return getDelegateDetails(fallback)
+
+    const items: { label: string; value: string; isHtml?: boolean }[] = []
+    const d = data.delegate || {}
+    const str = (v: unknown) => (v === null || v === undefined ? '' : String(v)).trim()
+
+    // All registration form fields
+    data.records.forEach((r) => {
+      items.push({ label: r.input_name, value: str(r.input_value) || '—' })
+    })
+
+    // Registration + payment meta from the delegate object
+    const meta: [string, string][] = [
+      ['Category', str(d.ticket_name)],
+      ['Attendance Type', str(d.attendence_type)],
+      ['Registration Status', str(d.registration_status)],
+      ['Payment Status', str(d.payment_status)],
+      ['Amount To Pay', str(d.amount_to_pay)],
+      ['Amount Paid', str(d.amount_received)],
+      ['Registered On', str(d.done_on)],
+    ]
+    meta.forEach(([label, value]) => {
+      if (value) items.push({ label, value })
+    })
+
+    return items
+  }
+
   // Action handlers
-  const handleView = (delegate: Delegate) => {
+  const handleView = async (delegate: Delegate) => {
     setSelectedDelegate(delegate)
     setShowViewModal(true)
     setOpenActionMenu(null)
+
+    // Fetch the full registration record (all form fields) for this delegate
+    setDelegateDetails(null)
+    setDetailsError('')
+
+    const badgeId = getDelegateValue(delegate, 4).replace(/[^0-9]/g, '')
+    if (!badgeId) {
+      setDetailsError('Could not determine delegate id')
+      return
+    }
+
+    setDetailsLoading(true)
+    try {
+      const response = await delegatesApi.getDetails(badgeId)
+      if (response?.data) {
+        setDelegateDetails(response.data)
+      } else {
+        setDetailsError('No additional details available')
+      }
+    } catch (err) {
+      console.error('Failed to load delegate details:', err)
+      setDetailsError('Failed to load full details')
+    } finally {
+      setDetailsLoading(false)
+    }
   }
 
   const handleResendInvitation = async (delegate: Delegate) => {
@@ -306,6 +465,9 @@ export default function DelegatesPage() {
   const closeViewModal = () => {
     setShowViewModal(false)
     setSelectedDelegate(null)
+    setDelegateDetails(null)
+    setDetailsError('')
+    setDetailsLoading(false)
   }
 
   const getPageNumbers = () => {
@@ -670,6 +832,130 @@ export default function DelegatesPage() {
           )}
         </div>
 
+        {/* Registrations by Category */}
+        {!loading && categoryBreakdown.length > 0 && (() => {
+          const totalRegistrations = categoryBreakdown.reduce(
+            (sum, item) => sum + item.count,
+            0,
+          )
+
+          // Total amount collected, grouped by currency
+          const amountByCurrency = new Map<string, number>()
+          categoryBreakdown.forEach((item) => {
+            if (item.amountPaid > 0) {
+              amountByCurrency.set(
+                item.currency,
+                (amountByCurrency.get(item.currency) || 0) + item.amountPaid,
+              )
+            }
+          })
+          const formatAmount = (amount: number, currency: string) =>
+            `${amount.toLocaleString(undefined, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            })} ${currency}`
+          const totalPaidLabel =
+            amountByCurrency.size > 0
+              ? Array.from(amountByCurrency.entries())
+                  .map(([currency, amount]) => formatAmount(amount, currency))
+                  .join(' + ')
+              : '—'
+
+          return (
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden mt-6">
+              <div className="px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Registrations by Category
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Registrations and amount paid per category
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="text-sm text-gray-600 bg-primary-50 px-4 py-2 rounded-lg">
+                    Total Registrations:{' '}
+                    <span className="font-semibold text-primary-600">
+                      {totalRegistrations}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600 bg-green-50 px-4 py-2 rounded-lg">
+                    Amount Paid:{' '}
+                    <span className="font-semibold text-green-700">
+                      {totalPaidLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-gray-600">
+                        Registrations
+                      </th>
+                      <th className="px-6 py-3 text-center text-sm font-semibold text-gray-600">
+                        Payment Status
+                      </th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-gray-600">
+                        Amount Paid
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {categoryBreakdown.map((item) => (
+                      <tr key={item.name} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            {item.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
+                          {item.count}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap justify-center gap-1.5">
+                            {item.paid > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                {item.paid} Paid
+                              </span>
+                            )}
+                            {item.pending > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                {item.pending} Pending
+                              </span>
+                            )}
+                            {item.free > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                {item.free} Free
+                              </span>
+                            )}
+                            {item.paid === 0 && item.pending === 0 && item.free === 0 && (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
+                          {item.amountPaid > 0
+                            ? formatAmount(item.amountPaid, item.currency)
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Stats Cards */}
         {!loading && delegates.length > 0 && (
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -753,8 +1039,24 @@ export default function DelegatesPage() {
 
               {/* Content */}
               <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
+                {detailsLoading && (
+                  <div className="flex items-center justify-center gap-3 py-6 text-gray-500 text-sm">
+                    <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Loading full details...
+                  </div>
+                )}
+
+                {!detailsLoading && detailsError && (
+                  <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm">
+                    {detailsError}. Showing limited information from the list.
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {getDelegateDetails(selectedDelegate).map((detail, idx) => (
+                  {buildDetailItems(delegateDetails, selectedDelegate).map((detail, idx) => (
                     <div
                       key={idx}
                       className={`p-4 bg-gray-50 rounded-xl ${
