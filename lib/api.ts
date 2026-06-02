@@ -553,6 +553,24 @@ export interface TableHeadersResponse {
   message?: string;
 }
 
+// Full delegate detail (from Get_Delegate_Details)
+export interface DelegateRecord {
+  input_code: string;
+  input_name: string;
+  input_type: number;
+  input_value: string;
+}
+
+export interface DelegateDetailResponse {
+  message: string;
+  data: {
+    delegate: Record<string, string | number | null>;
+    records: DelegateRecord[];
+    profile_picture: string;
+    all_category?: unknown;
+  };
+}
+
 // Delegates API
 export const delegatesApi = {
   invite: async (delegateData: {
@@ -579,6 +597,14 @@ export const delegatesApi = {
     return smartEventRequest<DelegatesListResponse>(
       '/Delegates-Data/Get_Delegates_List/69848109c25ca',
       { method: 'POST' },
+    );
+  },
+
+  // Get full details for a single delegate by badge id
+  getDetails: async (badgeId: string): Promise<DelegateDetailResponse> => {
+    return smartEventRequest<DelegateDetailResponse>(
+      `/Delegates-Data/Get_Delegate_Details/69848109c25ca/${badgeId}`,
+      { method: 'GET' },
     );
   },
 };
