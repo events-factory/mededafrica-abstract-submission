@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import * as XLSX from 'xlsx';
 import { abstractsApi } from '@/lib/api';
 import type { Abstract } from '@/lib/types';
 import AppLayout from '@/components/AppLayout';
@@ -57,6 +56,7 @@ export default function DashboardPage() {
   const [scoreFilter, setScoreFilter] = useState<
     'any' | 'below15' | '15to19' | '20plus'
   >('any');
+  const [bonusFilter, setBonusFilter] = useState<'any' | 'with' | 'without'>('any');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAbstracts, setTotalAbstracts] = useState(0); // server total, used for pagination display
@@ -92,6 +92,7 @@ export default function DashboardPage() {
     statusFilter: typeof filter,
     rFilter: typeof reviewFilter,
     sFilter: typeof scoreFilter,
+    bFilter: typeof bonusFilter,
   ) => {
     setLoading(true);
 
@@ -117,6 +118,7 @@ export default function DashboardPage() {
       statusFilter as Exclude<typeof statusFilter, 'my_assigned'>,
       rFilter,
       sFilter,
+      bFilter,
     );
 
     if (response.data && Array.isArray(response.data)) {
@@ -156,9 +158,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchAbstracts(currentPage, filter, reviewFilter, scoreFilter);
+    fetchAbstracts(currentPage, filter, reviewFilter, scoreFilter, bonusFilter);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, filter, reviewFilter, scoreFilter]);
+  }, [currentPage, filter, reviewFilter, scoreFilter, bonusFilter]);
 
   useEffect(() => {
     fetchStatusCounts();
@@ -239,76 +241,20 @@ export default function DashboardPage() {
 
   const exportToExcel = async () => {
     setExportLoading(true);
-    // Backend caps `limit` at 100 — fetch in pages and concatenate.
-    const PAGE = 100;
-    const all: Abstract[] = [];
     try {
-      const first = await abstractsApi.getAll(1, PAGE);
-      if (first.data && Array.isArray(first.data)) {
-        all.push(...first.data);
-        const totalPages = first.pagination?.totalPages ?? 1;
-        for (let p = 2; p <= totalPages; p++) {
-          const res = await abstractsApi.getAll(p, PAGE);
-          if (res.data && Array.isArray(res.data)) all.push(...res.data);
-        }
-      }
+      // Single backend call returns the full .xlsx; the server builds the workbook.
+      const blob = await abstractsApi.exportFile();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `abstracts-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Export failed.');
     } finally {
       setExportLoading(false);
     }
-
-    if (all.length === 0) {
-      alert('No abstracts to export.');
-      return;
-    }
-
-    const maxReviewers = isSuperAdmin
-      ? Math.max(0, ...all.map((a) => a.reviews?.length ?? 0))
-      : 0;
-
-    const rows = all.map((a) => {
-      const base: Record<string, string | number> = {
-        ID: a.id,
-        Title: a.title,
-        'Presenter Name': a.presenterFullName,
-        'Presenter Email': a.presenterEmail,
-        'Presenter Phone': a.presenterPhone ?? '',
-        'Presenter Institution': a.presenterInstitution ?? '',
-        'Presenter Country': a.presenterCountry ?? '',
-        'Presenter Gender': a.presenterGender ?? '',
-        'Professional Status': a.professionalStatus ?? '',
-        Category: a.subThemeCategory ?? '',
-        'Presentation Type': a.presentationType ?? '',
-        Status: a.status,
-        Points: a.points ?? '',
-        'Review Note': a.reviewNote ?? '',
-        'Reviewed By': a.reviewedBy ?? '',
-        'Reviewed At': a.reviewedAt ? new Date(a.reviewedAt).toLocaleDateString() : '',
-        'Submitted At': new Date(a.createdAt).toLocaleDateString(),
-      };
-
-      if (isSuperAdmin) {
-        for (let i = 0; i < maxReviewers; i++) {
-          const r = a.reviews?.[i];
-          base[`Reviewer ${i + 1}`] = r?.reviewerEmail ?? '';
-          base[`Reviewer ${i + 1} Score`] = r?.totalScore ?? '';
-        }
-        const sc = a.points ?? 0;
-        const bonus = a.equityPoints ?? 0;
-        base['Average Score'] = a.averageScore ?? '';
-        base['SC'] = a.points ?? '';
-        base['Bonus Points'] = a.equityPoints ?? '';
-        base['Sum (SC + Bonus)'] = sc + bonus;
-      }
-
-      return base;
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Abstracts');
-
-    const filename = `abstracts-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(workbook, filename);
   };
 
   return (
@@ -421,8 +367,8 @@ export default function DashboardPage() {
 
         {/* Search */}
         <div className="bg-white rounded-xl shadow-sm px-4 py-3 mb-4">
-          <div className="flex flex-wrap items-center gap-3">
-          <div className="relative max-w-md flex-1 min-w-[260px]">
+          <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
+          <div className="relative max-w-md flex-1 min-w-[200px]">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
@@ -442,7 +388,7 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1">
             <label
               htmlFor="reviewFilter"
               className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 whitespace-nowrap"
@@ -450,8 +396,9 @@ export default function DashboardPage() {
               <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              Reviewers per abstract:
+              Reviewers per abstract
             </label>
+            <div className="flex items-center gap-2">
             <select
               id="reviewFilter"
               value={reviewFilter}
@@ -485,9 +432,10 @@ export default function DashboardPage() {
                 Clear
               </button>
             )}
+            </div>
           </div>
           {isSuperAdmin && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-1">
               <label
                 htmlFor="scoreFilter"
                 className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 whitespace-nowrap"
@@ -495,8 +443,9 @@ export default function DashboardPage() {
                 <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M7 15l4-4 4 4 6-6" />
                 </svg>
-                Average score:
+                Average score
               </label>
+              <div className="flex items-center gap-2">
               <select
                 id="scoreFilter"
                 value={scoreFilter}
@@ -528,15 +477,60 @@ export default function DashboardPage() {
                   Clear
                 </button>
               )}
+              </div>
             </div>
           )}
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="bonusFilter"
+              className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 whitespace-nowrap"
+            >
+              <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Bonus points
+            </label>
+            <div className="flex items-center gap-2">
+            <select
+              id="bonusFilter"
+              value={bonusFilter}
+              onChange={(e) => {
+                setBonusFilter(e.target.value as typeof bonusFilter);
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 transition-colors ${
+                bonusFilter !== 'any'
+                  ? 'bg-primary-50 border-primary-300 text-primary-700 font-medium'
+                  : 'bg-white border-gray-200 text-gray-700'
+              }`}
+              title="Filter abstracts by whether they have equity bonus points"
+            >
+              <option value="any">Show all</option>
+              <option value="with">With bonus points</option>
+              <option value="without">Without bonus points</option>
+            </select>
+            {bonusFilter !== 'any' && (
+              <button
+                onClick={() => {
+                  setBonusFilter('any');
+                  setCurrentPage(1);
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                title="Clear bonus filter"
+              >
+                Clear
+              </button>
+            )}
+            </div>
           </div>
-          {(q || reviewFilter !== 'any' || scoreFilter !== 'any') && (
+          </div>
+          {(q || reviewFilter !== 'any' || scoreFilter !== 'any' || bonusFilter !== 'any') && (
             <p className="text-xs text-gray-500 mt-2">
               {filteredAbstracts.length} result{filteredAbstracts.length !== 1 ? 's' : ''}
               {q && <> for &ldquo;{search}&rdquo;</>}
               {reviewFilter !== 'any' && <> · review filter active</>}
               {scoreFilter !== 'any' && <> · score filter active</>}
+              {bonusFilter !== 'any' && <> · bonus filter active</>}
             </p>
           )}
         </div>

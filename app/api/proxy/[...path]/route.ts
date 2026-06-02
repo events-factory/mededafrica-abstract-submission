@@ -95,13 +95,22 @@ async function proxyRequest(
       body: body || undefined,
     })
 
-    const data = await response.text()
+    // Pass the response through as raw bytes so binary payloads (e.g. the
+    // .xlsx export) aren't corrupted by text decoding. JSON endpoints are
+    // unaffected — they keep their upstream application/json content-type.
+    const buffer = await response.arrayBuffer()
 
-    return new NextResponse(data, {
+    const responseHeaders: Record<string, string> = {
+      'Content-Type': response.headers.get('content-type') || 'application/json',
+    }
+    const contentDisposition = response.headers.get('content-disposition')
+    if (contentDisposition) {
+      responseHeaders['Content-Disposition'] = contentDisposition
+    }
+
+    return new NextResponse(buffer, {
       status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: responseHeaders,
     })
   } catch (error) {
     console.error('Proxy error:', error)
