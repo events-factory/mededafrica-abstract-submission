@@ -292,7 +292,12 @@ export default function DashboardPage() {
           base[`Reviewer ${i + 1}`] = r?.reviewerEmail ?? '';
           base[`Reviewer ${i + 1} Score`] = r?.totalScore ?? '';
         }
+        const sc = a.points ?? 0;
+        const bonus = a.equityPoints ?? 0;
         base['Average Score'] = a.averageScore ?? '';
+        base['SC'] = a.points ?? '';
+        base['Bonus Points'] = a.equityPoints ?? '';
+        base['Sum (SC + Bonus)'] = sc + bonus;
       }
 
       return base;
