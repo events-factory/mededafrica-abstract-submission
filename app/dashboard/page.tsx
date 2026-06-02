@@ -52,7 +52,7 @@ export default function DashboardPage() {
     'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_requested' | 'my_assigned'
   >('all');
   const [reviewFilter, setReviewFilter] = useState<
-    'any' | '0' | '1' | '2' | '2plus' | 'admin'
+    'any' | '0' | '1' | '2' | '2plus' | 'admin' | 'sc_pending'
   >('any');
   const [scoreFilter, setScoreFilter] = useState<
     'any' | 'below15' | '15to19' | '20plus'
@@ -466,6 +466,7 @@ export default function DashboardPage() {
               <option value="1">Only 1 reviewer has scored</option>
               <option value="2">2 reviewers have scored</option>
               <option value="admin">Scored by admin (SC review)</option>
+              <option value="sc_pending">SC review pending</option>
             </select>
             {reviewFilter !== 'any' && (
               <button
