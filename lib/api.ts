@@ -273,6 +273,7 @@ export const abstractsApi = {
     status?: string,
     reviewFilter?: string,
     scoreFilter?: string,
+    bonusFilter?: string,
   ) => {
     const params = new URLSearchParams();
     params.set('page', String(page));
@@ -280,9 +281,22 @@ export const abstractsApi = {
     if (status && status !== 'all') params.set('status', status);
     if (reviewFilter && reviewFilter !== 'any') params.set('reviewFilter', reviewFilter);
     if (scoreFilter && scoreFilter !== 'any') params.set('scoreFilter', scoreFilter);
+    if (bonusFilter && bonusFilter !== 'any') params.set('bonusFilter', bonusFilter);
     return apiRequest<Abstract[]>(`/abstracts?${params.toString()}`, {
       method: 'GET',
     });
+  },
+
+  // Server-side export: returns the full .xlsx as a binary blob in one request.
+  // Uses a raw fetch (not apiRequest, which parses JSON) so the binary survives.
+  exportFile: async (): Promise<Blob> => {
+    const token =
+      typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    const res = await fetch(`${API_BASE_URL}/abstracts/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+    return res.blob();
   },
 
   getById: async (id: number) => {
