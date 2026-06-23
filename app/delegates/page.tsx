@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import * as XLSX from 'xlsx'
 import { delegatesApi, DelegateTableHeader, Delegate, DelegateDetailResponse } from '@/lib/api'
 import AppLayout from '@/components/AppLayout'
 
@@ -16,6 +17,10 @@ export default function DelegatesPage() {
   const [selectedDelegate, setSelectedDelegate] = useState<Delegate | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [preparedRows, setPreparedRows] = useState<Array<Record<string, string | number | null>> | null>(null)
+  const [preparedColLabels, setPreparedColLabels] = useState<string[]>([])
 
   // Full delegate details (fetched on demand when opening the View modal)
   const [delegateDetails, setDelegateDetails] = useState<DelegateDetailResponse['data'] | null>(null)
@@ -470,6 +475,91 @@ export default function DelegatesPage() {
     setDetailsLoading(false)
   }
 
+  const stripHtml = (raw: string | number | null | undefined): string => {
+    if (raw === null || raw === undefined) return '-'
+    return String(raw)
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || '-'
+  }
+
+  const prepareExport = async () => {
+    setExportLoading(true)
+    setExportProgress(0)
+    setPreparedRows(null)
+    setPreparedColLabels([])
+
+    try {
+      const response = await delegatesApi.getFullList()
+      setExportProgress(80)
+
+      const fullRows: Array<Record<string, string | number | null>> = response.data ?? []
+
+      if (!fullRows.length) {
+        alert('No data returned. Try again.')
+        return
+      }
+
+      // Collect every numeric column index present in the response
+      const colIndices = new Set<number>()
+      fullRows.forEach((row) => {
+        Object.keys(row).forEach((k) => {
+          const n = Number(k)
+          if (!isNaN(n)) colIndices.add(n)
+        })
+      })
+      const sortedIndices = Array.from(colIndices).sort((a, b) => a - b)
+
+      // Filter out columns that are pure HTML (action cells) using the first row as a sample
+      const firstRow = fullRows[0]
+      const dataIndices = sortedIndices.filter((idx) => {
+        const val = String(firstRow[idx] ?? '')
+        return !val.trim().startsWith('<')
+      })
+
+      // Build column labels: use table headers where they cover these indices,
+      // otherwise fall back to a descriptive label derived from the column position.
+      // The full-list response skips the action/badge prefix columns so index 0
+      // in the response corresponds to the first real field.
+      const labels = dataIndices.map((idx) => {
+        const h = headers[idx]
+        return h ? h.nameEnglish : `Column ${idx}`
+      })
+
+      setPreparedColLabels(labels)
+
+      // Pre-build clean rows (HTML stripped, ready for sheet writing)
+      const cleaned = fullRows.map((row, i) => {
+        const out: Record<string, string | number> = { '#': i + 1 }
+        dataIndices.forEach((idx, li) => {
+          out[labels[li]] = stripHtml(row[idx])
+        })
+        return out
+      })
+
+      setPreparedRows(cleaned)
+      setExportProgress(100)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Preparation failed.')
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
+  const downloadExcel = () => {
+    if (!preparedRows?.length) return
+    const ws = XLSX.utils.json_to_sheet(preparedRows)
+    // Auto column widths
+    const colWidths = preparedColLabels.map((label) => ({
+      wch: Math.max(label.length + 2, 14),
+    }))
+    ws['!cols'] = [{ wch: 5 }, ...colWidths]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Delegates')
+    XLSX.writeFile(wb, `delegates-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
   const getPageNumbers = () => {
     const pages: (number | string)[] = []
     const maxVisiblePages = 5
@@ -510,6 +600,51 @@ export default function DelegatesPage() {
                 Total Delegates:{' '}
                 <span className="font-semibold text-primary-600">{delegates.length}</span>
               </div>
+              {/* Step 1: Prepare */}
+              <button
+                onClick={prepareExport}
+                disabled={loading || exportLoading || delegates.length === 0}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Prepare full export list"
+              >
+                {exportLoading ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Preparing{exportProgress > 0 && exportProgress < 100 ? ` ${exportProgress}%` : '...'}
+                  </>
+                ) : preparedRows ? (
+                  <>
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Re-prepare List
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Prepare Export List
+                  </>
+                )}
+              </button>
+
+              {/* Step 2: Download (only shown after prepare) */}
+              {preparedRows && !exportLoading && (
+                <button
+                  onClick={downloadExcel}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                  title={`Download Excel (${preparedRows.length} rows)`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Export to Excel ({preparedRows.length})
+                </button>
+              )}
               <button
                 onClick={fetchData}
                 disabled={loading}
