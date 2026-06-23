@@ -607,7 +607,20 @@ export const delegatesApi = {
       { method: 'GET' },
     );
   },
+
+  // Get all delegates with full field data for Excel export
+  getFullList: async (): Promise<DelegatesFullListResponse> => {
+    const response = await fetch('/api/smartevent/delegates-export', { method: 'POST' });
+    return response.json();
+  },
 };
+
+export interface DelegatesFullListResponse {
+  data: Array<Record<string, string | number | null>>;
+  headers?: string[];
+  recordsTotal?: number;
+  recordsFiltered?: number;
+}
 
 // Co-authors API
 export const coauthorsApi = {
