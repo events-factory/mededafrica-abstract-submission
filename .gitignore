@@ -35,4 +35,8 @@ yarn-error.log*
 next-env.d.ts
 config.bat
 
-.env
+# security hardening: env + editor dirs
+!.env.example
+!.env.sample
+!.env.template
+.claude/
